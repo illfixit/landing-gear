@@ -1,0 +1,1626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="theme-color" content="#83d5fa"/>
+<title>Runway Rush 3D — Offline</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#83d5fa;font-family:Inter,ui-rounded,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
+canvas{display:block;width:100vw;height:100vh;touch-action:none}
+#ui{position:fixed;inset:0;pointer-events:none;color:#fff;text-shadow:0 2px 4px rgba(0,0,0,.42)}
+.top{position:absolute;top:max(12px,env(safe-area-inset-top));left:12px;right:12px;display:flex;justify-content:space-between;gap:8px}
+.pill{padding:8px 11px;border-radius:999px;background:rgba(25,31,42,.79);border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(8px);font-weight:900;font-size:clamp(11px,3vw,15px);white-space:nowrap}
+#airport{position:absolute;left:12px;top:126px;width:min(47vw,220px);padding:11px 13px;border-radius:17px;background:rgba(25,31,42,.68);border:1px solid rgba(255,255,255,.16);backdrop-filter:blur(8px);opacity:0;transition:opacity .25s}
+#airport b{display:block;font-size:17px}.mult{font-size:29px;font-weight:1000;color:#ffd54f;margin:4px 0}
+#center{position:absolute;left:50%;top:20%;transform:translate(-50%,-50%);width:min(92vw,560px);text-align:center;font-size:clamp(28px,7.5vw,56px);font-weight:1000;line-height:1;text-transform:uppercase;letter-spacing:.04em}
+#center small{display:block;margin-top:10px;font-size:clamp(12px,3.2vw,17px);text-transform:none;letter-spacing:.01em;line-height:1.3;font-weight:800}
+#bottom{position:absolute;left:12px;right:12px;bottom:max(14px,env(safe-area-inset-bottom));display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
+.meter{width:min(57vw,310px);padding:9px 11px 10px;border-radius:16px;background:rgba(25,31,42,.79);border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(8px)}
+.mrow{display:flex;justify-content:space-between;margin-bottom:7px;font-size:11px;font-weight:900}.track{height:10px;border-radius:999px;background:rgba(255,255,255,.17);overflow:hidden}
+#fill{height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,#79e58e,#ffe26d,#ff8c69)}
+/* Release band: hitting the middle of the swing tops up the oil tank. */
+#launchTrack.zoned{background:linear-gradient(90deg,
+  rgba(255,255,255,.17) 0 40%,#c98b2e 40% 52%,#3fae63 52% 64%,#c98b2e 64% 76%,rgba(255,255,255,.17) 76% 100%)}
+#launchTrack.zoned #fill{background:rgba(255,255,255,.34);border-right:3px solid #fff}
+#hint{padding:9px 10px;border-radius:14px;background:rgba(25,31,42,.65);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(8px);font-size:clamp(11px,2.8vw,14px);font-weight:800;text-align:right}
+#results{position:absolute;inset:0;display:none;place-items:center;background:rgba(8,12,20,.28);pointer-events:auto}
+.panel{width:min(88vw,420px);padding:25px;border-radius:26px;background:rgba(24,30,42,.94);border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(12px);text-align:center;box-shadow:0 20px 70px rgba(0,0,0,.32)}
+.panel h1{margin:0;font-size:clamp(28px,8vw,44px);text-transform:uppercase}#final{font-size:clamp(42px,12vw,72px);font-weight:1000;line-height:1;color:#ffd54f;margin:15px 0 7px}
+#meta{font-weight:750;line-height:1.5;opacity:.9;margin-bottom:21px}
+button{width:100%;border:0;border-radius:16px;padding:14px 18px;background:#fff;color:#18202c;font:1000 17px inherit;box-shadow:0 7px 0 rgba(0,0,0,.15);cursor:pointer}
+button:active{transform:translateY(2px);box-shadow:0 5px 0 rgba(0,0,0,.15)}
+
+button.ghost{background:rgba(255,255,255,.12);color:#fff;box-shadow:0 7px 0 rgba(0,0,0,.18);border:1px solid rgba(255,255,255,.22)}
+.coin{color:#ffd54f}
+
+#rightStack{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+#landBtn{display:none;width:auto;pointer-events:auto;padding:9px 13px;border-radius:15px;
+  background:rgba(25,31,42,.79);border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(8px);
+  color:#fff;box-shadow:0 5px 0 rgba(0,0,0,.2);text-shadow:0 2px 4px rgba(0,0,0,.42);
+  align-items:center;gap:9px;font:1000 13px inherit;line-height:1.15}
+#landBtn.show{display:flex}
+#landBtn .landIcon{font-size:19px;filter:grayscale(.6) opacity(.75)}
+#landBtn span span{display:block;text-align:left}
+#landBtn .landTitle{font-size:11px;letter-spacing:.05em;opacity:.82}
+#landBtn .landState{font-size:15px;font-weight:1000}
+#landBtn.on{background:rgba(58,142,90,.88);border-color:rgba(180,255,205,.5)}
+#landBtn.on .landIcon{filter:none}
+#fill.stall{background:#ff6b5a}
+
+#progress{position:absolute;left:12px;top:74px;width:min(56vw,300px);opacity:0;transition:opacity .25s}
+#progress.show{opacity:1}
+#progTrack{position:relative;height:8px;border-radius:999px;background:rgba(25,31,42,.72);
+  border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(8px)}
+#progFill{position:absolute;left:0;top:0;bottom:0;width:0;border-radius:999px;background:rgba(255,255,255,.4)}
+.progTick{position:absolute;top:-4px;width:3px;height:16px;margin-left:-1.5px;border-radius:2px;background:#ffd54f}
+.progTick.done{background:#8be59b}
+.progLbl{position:absolute;top:15px;transform:translateX(-50%);font-size:9px;font-weight:1000;
+  letter-spacing:.05em;opacity:.8;white-space:nowrap}
+#progPlane{position:absolute;top:-9px;transform:translateX(-50%);font-size:13px;line-height:1;left:0}
+
+#bottomLeft{display:flex;align-items:flex-end;gap:8px}
+.hudBox{padding:9px 11px 10px;border-radius:16px;background:rgba(25,31,42,.79);
+  border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(8px);text-align:center;
+  min-width:64px;opacity:0;transition:opacity .25s}
+.hudBox.show{opacity:1}
+.hudBox span{display:block;font-size:10px;font-weight:900;letter-spacing:.08em;opacity:.68}
+.hudBox span:last-child{margin-top:-2px}
+.hudBox b{display:block;font-size:19px;font-weight:1000;line-height:1.1}
+.hudBox.good b{color:#8be59b}
+.hudBox.warn b,.hudBox.low b{color:#ffd54f}
+.hudBox.bad b{color:#ff8a7a}
+#spdBox{min-width:72px}
+#spdBox.bad #spdLabel{opacity:1;color:#ff8a7a}
+
+#adiWrap{position:absolute;right:12px;top:78px;width:min(42vw,182px);opacity:0;transition:opacity .3s;pointer-events:none}
+#adiWrap.show{opacity:1}
+#adi{display:block;width:100%;height:auto;border-radius:50%;
+  border:2px solid rgba(255,255,255,.55);box-shadow:0 10px 28px rgba(0,0,0,.38)}
+#adiCap{margin-top:6px;text-align:center;font-size:10px;font-weight:1000;letter-spacing:.09em;opacity:.85}
+#adiCap.locked{color:#8be59b}
+
+#toast{position:absolute;left:50%;top:47%;transform:translate(-50%,-50%);
+  font-size:clamp(17px,4.6vw,26px);font-weight:1000;letter-spacing:.05em;text-transform:uppercase;
+  opacity:0;transition:opacity .25s;white-space:nowrap}
+#toast.show{opacity:1}
+#toast.good{color:#9bf0ac}#toast.bad{color:#ff9384}
+#airportSink{display:block;font-size:12px;font-weight:900;margin-top:2px}
+#airportSink.ok{color:#8be59b}#airportSink.warn{color:#ffd54f}#airportSink.bad{color:#ff8a7a}
+
+#menu{position:absolute;inset:0;display:none;place-items:center;background:rgba(8,12,20,.34);pointer-events:auto}
+.menuPanel{text-align:center}
+.brand{margin:0 0 4px;font-size:clamp(30px,9vw,48px);font-weight:1000;text-transform:uppercase;line-height:.95;letter-spacing:.02em}
+.brand span{display:block;color:#ffd54f}
+.tagline{font-size:12px;font-weight:800;opacity:.72;margin-bottom:16px}
+.stats{display:flex;gap:10px;margin-bottom:18px}
+.stat{flex:1;padding:9px 8px;border-radius:14px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.14)}
+.stat span{display:block;font-size:10px;font-weight:900;letter-spacing:.08em;opacity:.7}
+.stat b{font-size:19px;font-weight:1000}
+#menuHome button+button{margin-top:10px}
+.uphead{margin:0 0 14px;font-size:20px;font-weight:1000;text-transform:uppercase;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.upcard{display:flex;align-items:center;gap:10px;text-align:left;padding:11px 12px;margin-bottom:10px;border-radius:16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14)}
+.upicon{font-size:24px;line-height:1;width:30px;text-align:center}
+.upbody{flex:1;min-width:0}
+.upname{font-size:14px;font-weight:1000;text-transform:uppercase;letter-spacing:.03em}
+.updesc{font-size:11px;font-weight:750;opacity:.78;line-height:1.35}
+.pips{display:flex;gap:3px;margin-top:5px}
+.pip{width:12px;height:5px;border-radius:999px;background:rgba(255,255,255,.2)}
+.pip.on{background:#ffd54f}
+.upbuy{width:auto;flex:0 0 auto;padding:9px 12px;font:1000 13px inherit;border-radius:13px;white-space:nowrap}
+.upbuy:disabled{opacity:.42;cursor:default;box-shadow:0 5px 0 rgba(0,0,0,.15);transform:none}
+.upbuy.maxed{background:#ffd54f}
+#backBtn{margin-top:4px}
+
+/* Floating stick: the base is planted wherever the flight touch lands, so the
+   thumb never has to find a fixed pad. Purely visual — the canvas owns the
+   pointer, which keeps drags smooth even when they wander off the base. */
+#joystickWrap{
+  position:absolute;
+  left:0;top:0;
+  width:132px;height:132px;
+  margin-left:-66px;margin-top:-66px;
+  pointer-events:none;
+  display:none;
+  transition:opacity .16s;
+}
+#joystickWrap.idle{opacity:.4}
+#joystickBase{
+  position:absolute;inset:0;border-radius:50%;
+  background:rgba(22,29,40,.34);
+  border:2px solid rgba(255,255,255,.34);
+  backdrop-filter:blur(6px);
+  box-shadow:inset 0 0 0 10px rgba(255,255,255,.045);
+}
+#joystickKnob{
+  position:absolute;left:50%;top:50%;
+  width:58px;height:58px;margin-left:-29px;margin-top:-29px;
+  border-radius:50%;
+  background:rgba(255,255,255,.88);
+  border:2px solid rgba(255,255,255,.96);
+  box-shadow:0 6px 18px rgba(0,0,0,.24);
+  transform:translate(0px,0px);
+}
+#steerLabel{
+  position:absolute;left:50%;top:-23px;transform:translateX(-50%);
+  font-size:11px;font-weight:1000;letter-spacing:.06em;white-space:nowrap;
+  text-shadow:0 2px 4px rgba(0,0,0,.45)
+}
+
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="ui">
+  <div class="top">
+    <div class="pill">DIST <span id="dist">0</span>m · SCORE <span id="score">0</span></div>
+    <div class="pill">WIND <span id="windArrow">→</span> <span id="wind">0</span> km/h</div>
+  </div>
+  <div id="airport"><b id="airportName">Airport 1</b><span id="airportAway"></span><div class="mult" id="airportMult">×1.2</div><span>Land to bank it</span><span id="airportSink"></span></div>
+  <div id="progress"><div id="progTrack"><div id="progFill"></div><div id="progPlane">✈</div></div></div>
+  <div id="adiWrap"><canvas id="adi" width="360" height="360"></canvas><div id="adiCap">APPROACH</div></div>
+  <div id="toast"></div>
+  <div id="center">HOLD TO CHARGE<small id="sub">Release to launch · hold in flight to climb</small></div>
+  <div id="bottom">
+    <div id="bottomLeft">
+      <div class="meter" id="meterBox"><div class="mrow"><span id="meterLabel">LAUNCH POWER</span><span id="meterValue">0%</span></div><div class="track" id="launchTrack"><div id="fill"></div></div></div>
+      <div id="spdBox" class="hudBox"><span id="spdLabel">SPD</span><b id="spdValue">0</b><span>km/h</span></div>
+      <div id="oilBox" class="hudBox"><span>OIL</span><b id="oilValue">100</b><span>%</span></div>
+      <div id="altBox" class="hudBox"><span>ALT</span><b id="altValue">0</b><span>m</span></div>
+      <div id="distBox" class="hudBox"><span>RWY</span><b id="distValue">0</b><span>m</span></div>
+    </div>
+    <div id="rightStack">
+      <button id="landBtn" type="button"><span class="landIcon">🛬</span><span><span class="landTitle">LANDING MODE</span><span class="landState" id="landState">OFF</span></span></button>
+      <div id="hint">Pull down = climb · flare to land<br/>L/R inverted · press L for flaps</div>
+    </div>
+  </div>
+  <div id="joystickWrap" aria-label="Flight joystick">
+    <div id="steerLabel">STEER</div>
+    <div id="joystickBase"></div>
+    <div id="joystickKnob"></div>
+  </div>
+  <div id="results"><div class="panel"><h1 id="resultTitle">RUN OVER</h1><div id="final">0</div><div id="meta"></div><button id="restart" type="button">FLY AGAIN</button><button id="toMenu" class="ghost" type="button" style="margin-top:10px">MAIN MENU</button></div></div>
+  <div id="menu">
+    <div class="panel menuPanel">
+      <div id="menuHome">
+        <h1 class="brand">RUNWAY<span>RUSH</span></h1>
+        <div class="tagline">Load the slingshot · fly far · land clean</div>
+        <div class="stats">
+          <div class="stat"><span>BEST</span><b id="bestScore">0</b></div>
+          <div class="stat"><span>COINS</span><b><span class="coin">●</span> <span id="coinCount">0</span></b></div>
+        </div>
+        <button id="playBtn" type="button">PLAY</button>
+        <button id="upgradesBtn" class="ghost" type="button">UPGRADES</button>
+      </div>
+      <div id="menuUpgrades" style="display:none">
+        <div class="uphead"><span>UPGRADES</span><span><span class="coin">●</span> <span id="coinCount2">0</span></span></div>
+        <div id="upgradeList"></div>
+        <button id="backBtn" class="ghost" type="button">BACK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+const $=id=>document.getElementById(id), canvas=$("game"), ctx=canvas.getContext("2d");
+const ui={dist:$("dist"),score:$("score"),wind:$("wind"),windArrow:$("windArrow"),airport:$("airport"),airportName:$("airportName"),airportAway:$("airportAway"),airportMult:$("airportMult"),center:$("center"),sub:$("sub"),meterLabel:$("meterLabel"),meterValue:$("meterValue"),fill:$("fill"),results:$("results"),resultTitle:$("resultTitle"),final:$("final"),meta:$("meta"),restart:$("restart"),joystickWrap:$("joystickWrap"),joystickKnob:$("joystickKnob"),
+menu:$("menu"),menuHome:$("menuHome"),menuUpgrades:$("menuUpgrades"),upgradeList:$("upgradeList"),
+bestScore:$("bestScore"),coinCount:$("coinCount"),coinCount2:$("coinCount2"),
+playBtn:$("playBtn"),upgradesBtn:$("upgradesBtn"),backBtn:$("backBtn"),toMenu:$("toMenu"),
+landBtn:$("landBtn"),landState:$("landState"),airportSink:$("airportSink"),
+altBox:$("altBox"),altValue:$("altValue"),distBox:$("distBox"),distValue:$("distValue"),
+meterBox:$("meterBox"),progress:$("progress"),progTrack:$("progTrack"),progFill:$("progFill"),progPlane:$("progPlane"),launchTrack:$("launchTrack"),steerLabel:$("steerLabel"),spdBox:$("spdBox"),spdValue:$("spdValue"),spdLabel:$("spdLabel"),oilBox:$("oilBox"),oilValue:$("oilValue"),
+adiWrap:$("adiWrap"),adiCap:$("adiCap"),toast:$("toast")};
+
+/* ---------- Save data & upgrades ---------- */
+const SAVE_KEY="runwayRush.save.v1";
+const UPGRADES=[
+  {key:"oil",icon:"🛢️",name:"Oil",max:8,base:140,
+   desc:l=>`Tank +${l*OIL.perLevel} s of engine · ${Math.round((OIL.base+l*OIL.perLevel)/OIL.base*100-100)}% more range`},
+  {key:"mult",icon:"✖️",name:"Multiplier",max:8,base:200,
+   desc:l=>`Every score ×${(1+l*.15).toFixed(2)}`}
+];
+// Oil is the range limit: the tank starts with just enough to reach Airport 1.
+const OIL={base:20,perLevel:12};
+// Releasing the slingshot mid-swing tops up the tank: a tight green band pays
+// +30%, the amber band either side +10%, anywhere else nothing.
+const RELEASE={mid:.58,green:.06,amber:.18};
+function releaseBonus(c){
+  const d=Math.abs(c-RELEASE.mid);
+  return d<=RELEASE.green?.30:d<=RELEASE.amber?.10:0;
+}
+const defaults=()=>({coins:0,best:0,up:{oil:0,mult:0}});
+let save=defaults();
+try{
+  const raw=localStorage.getItem(SAVE_KEY);
+  if(raw){const p=JSON.parse(raw);save={...save,...p,up:{...save.up,...(p&&p.up)}}}
+}catch(e){/* file:// or private mode — run with in-memory progress */}
+function persist(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(save))}catch(e){}}
+const lvl=k=>clamp(save.up[k]|0,0,UPGRADES.find(u=>u.key===k).max);
+const costOf=(u,l)=>Math.round(u.base*Math.pow(1.65,l)/10)*10;
+const slingBonus=()=>0;   // the launcher is fixed; range comes from the tank
+const oilCapacity=()=>OIL.base+lvl("oil")*OIL.perLevel;
+const liftBonus=()=>1;   // the airframe itself is no longer upgradeable
+const dragBonus=()=>1;
+const scoreBonus=()=>1+lvl("mult")*.15;
+
+let W=innerWidth,H=innerHeight,DPR=Math.min(devicePixelRatio||1,2);
+function resize(){W=innerWidth;H=innerHeight;DPR=Math.min(devicePixelRatio||1,2);canvas.width=Math.floor(W*DPR);canvas.height=Math.floor(H*DPR);canvas.style.width=W+"px";canvas.style.height=H+"px";ctx.setTransform(DPR,0,0,DPR,0,0)}
+addEventListener("resize",()=>{resize();if(typeof restJoystick==="function"&&!joy.active&&ui.joystickWrap.style.display==="block")restJoystick()});
+resize();
+
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), lerp=(a,b,t)=>a+(b-a)*t, rand=(a,b)=>a+Math.random()*(b-a), rad=d=>d*Math.PI/180, deg=r=>r*180/Math.PI, fmt=n=>Math.max(0,Math.floor(n)).toLocaleString();
+
+const CFG={gravity:15.1,pitchUp:rad(52),pitchDown:rad(28),minPitch:rad(-40),maxPitch:rad(34),firstAirport:1900,gap:2600,runwayLength:300};
+
+/* Flap schedule. The landing system walks down these detents one gate at a
+   time, each with its own target speed, so the aeroplane arrives at the last
+   gate fully configured and stabilised for a real final glide. */
+const FLAP={
+  detent:[0,.30,.58,.80,1],       // wing setting per stage
+  vref:[null,1.83,1.61,1.39,1.12],// speed to fly, as a multiple of that stage's
+                                  // stall speed — so the approach attitude is
+                                  // the same however good the wing is
+  decel:1.25,                     // deceleration available while configuring
+  decelHi:2.6,                    // and the harder braking available from cruise
+  rate:.11,                       // flap travel per second (full extension ~9 s)
+  hold:6,                         // seconds flown settled at a stage before the next
+  final:200                       // stabilised final from the last gate in
+};
+
+/* Aerodynamics. Forces are per unit mass, so a coefficient times kq*V^2 comes
+   out directly as an acceleration. Trimmed so that a neutral stick sits at
+   ~40 m/s in level flight and the wing stalls around 21 m/s clean. */
+const AERO={
+  kq:.027,          // dynamic pressure scale
+  clA:4.7,          // lift-curve slope per radian
+  a0:rad(-4.3),     // zero-lift angle of attack
+  aStall:rad(15),   // stall angle measured from the zero-lift line
+  cd0:.030,         // parasite drag
+  kInd:.070,        // induced drag factor — best glide sits near 30 m/s
+  cdStall:2.1,      // separation drag once the wing lets go
+  trim:.93,         // neutral stick sits a touch under 1g, so the path eases down
+  gUp:15,           // extra pull available at full back stick
+  gDown:11,
+  geH:13,           // ground effect reaches about one wingspan up
+  geMax:.34,
+  flapCl:.90,       // extra camber from the landing flaps
+  flapCd:.075,      // and a lot of drag, which is what makes them a descent tool
+  gearCd:.022,      // dangling gear costs drag, so it is worth tucking away
+  gearRate:.28,     // gear travel per second (~3.5 s to swing)
+  flapPeak:rad(20), // and far more max lift, so flaps drop the stall to ~50 km/h
+  // Thrust is a throttle, never a brake: the only way to slow down is drag,
+  // which is what the flaps are for.
+  thrustMax:5.4,    // full power. Cruise sits near half throttle, leaving
+                    // headroom to climb.
+  spool:2.2,        // how fast the engine answers the lever, per second
+  cruiseSpd:55.6,   // cruise, ~200 km/h — settled into after the launch
+  climbOutSpd:50,   // hand the stick back at ~180 km/h
+  climbBoost:1.35,  // climb power sits above cruise power, as on a real aeroplane
+  thrK:.14,
+  // Throttle at zero speed error. Cruise needs enough to actually hold the
+  // target; on approach it must sit near idle so the aeroplane can slow down.
+  cruiseBias:.5,appBias:.22
+};
+const clPeak=flap=>AERO.clA*(AERO.aStall+AERO.flapPeak*flap);
+const aoaExcess=(aoa,flap)=>Math.max(0,Math.abs(aoa-AERO.a0+AERO.flapCl/AERO.clA*flap)-(AERO.aStall+AERO.flapPeak*flap));
+function liftCoef(aoa,flap){
+  const e=aoa-AERO.a0+AERO.flapCl/AERO.clA*flap;   // angle above the zero-lift line
+  const a=Math.abs(e), s=e<0?-1:1, peak=AERO.aStall+AERO.flapPeak*flap;
+  if(a<=peak)return AERO.clA*e;
+  // Soft stall: lift bleeds away over a few degrees instead of vanishing.
+  return s*AERO.clA*peak*clamp(1-(a-peak)*2.4,.32,1);
+}
+const STATE={READY:0,CHARGE:1,FLY:2,ROLL:3,END:4,MENU:5};
+const SLING={x:0,z:5.8,h:11.4,rest:-3.4,pull:7.6};
+const START_ALT=62;       // airborne start height above the valley floor
+const START_CHARGE=.5;   // fixed launch energy — there is no launcher to charge
+let state=STATE.MENU,pointer=false,charge=0,chargeDir=1,last=performance.now(),rollTime=0,landed=null,shake=0,snap=0;
+let stallDepth=0,stallWarn=false,wasStalled=false,stallSide=1;
+let landingMode=false,landingAuto=false,apGate=-1,depHits=0,flapStage=0,flap=0,gear=1,throttle=0,fuel=0,dry=false,cruiseReached=false,climbTime=0,stalling=false,touchdown=0,spdTarget=0,landQuality={key:"LANDED",bonus:1};
+
+const plane={x:0,y:8,z:0,vx:0,vy:0,vz:0,pitch:rad(8),roll:0,yaw:0};
+const wind={x:2,z:0,targetX:2,targetZ:0,timer:5,gust:0};
+const joy={active:false,id:null,x:0,y:0,max:43,ox:0,oy:0};
+
+
+const VALLEY=58;   // half-width of the flyable valley floor
+function baseTerrain(x,z=0){
+  const az=Math.abs(z);
+  // Valley floor: gentle rolling ground along the route.
+  let h=2.6+Math.sin(x*.014)*2+Math.sin(x*.0045+1)*4.2+Math.sin(z*.055+x*.003)*1.4
+        +Math.sin(x*.0021+2.3)*3.2;
+  // Ridges climbing away on both sides, broken up so they read as peaks.
+  const m=az-VALLEY;
+  if(m>0){
+    h+=.62*m
+      +14*Math.sin(x*.0075+az*.012)*Math.min(1,m/40)
+      +9*Math.sin(x*.019+1.7)*Math.min(1,m/70);
+  }
+  return h;
+}
+// Airfields are graded flat: the ground eases to the runway's own height across
+// its footprint, so the asphalt lies in the earth instead of on top of it.
+const smooth=t=>t*t*(3-2*t);
+function terrain(x,z=0){
+  let h=baseTerrain(x,z);
+  for(const a of airports){
+    if(!a.len)continue;
+    const outX=Math.max(a.x-90-x,x-(a.x+a.len+90));
+    if(outX>190)continue;
+    const wx=smooth(1-clamp(outX/190,0,1));
+    const wz=smooth(1-clamp((Math.abs(z)-30)/80,0,1));
+    const w=Math.min(wx,wz);
+    if(w>0)h=lerp(h,a.padY,w);
+  }
+  return h;
+}
+function mult(i){return 1.2+i*.5}
+// Three fields, and the wind is what separates them: a calm strip first,
+// a gusty one last.
+const FIELD=[{wind:5,name:"BRISK"},{wind:9.5,name:"STRONG"},{wind:15,name:"SEVERE"}];
+const airports=[];
+for(let i=0;i<FIELD.length;i++)airports.push({index:i,x:0,len:0,y:0,mult:mult(i),windMax:FIELD[i].wind,windName:FIELD[i].name,gates:[],hits:0,armed:false});
+/* Approach corridor: a funnel of rings on a 6° glide slope down to the
+   touchdown zone. Crossing the first one arms the landing system, and every
+   ring you fly through cleanly pays out at touchdown. */
+/* Six gates down the approach. Every one commands a speed; only four of them
+   call for a notch of flap — the others are pure deceleration gates. */
+const PLAN=[
+  {base:"cruise",vk:.85,flap:null,r:11},
+  {base:1,vk:1.83,flap:1,r:10},
+  {base:1,vk:1.62,flap:null,r:8.5},
+  {base:2,vk:1.61,flap:2,r:7.5},
+  {base:3,vk:1.39,flap:3,r:6.5},
+  {base:4,vk:1.25,flap:4,r:5.5}
+];
+const GATE={aim:28,slope:rad(4),offsets:[],radii:PLAN.map(p=>p.r)};
+function planSpeed(i){
+  const p=PLAN[i];
+  return p.base==="cruise"?p.vk*AERO.cruiseSpd:p.vk*stallSpeed(p.base);
+}
+/* Departure corridor: a short ladder of gates that carries the aeroplane from
+   the launch up to cruise height and speed. Only a few degrees of bank are
+   available while flying it. The last gate is the cruise checkpoint, and a
+   DEP.cruiseLeg-second cruise then leads into the first approach gate. */
+const DEP={offsets:[340,620,900],radii:[22,17,12],bank:0,pitchAuth:0,cruiseLeg:8,topMargin:20};
+const depGates=[];
+let depCruiseY=0;
+// The launch arc tops out higher the harder you charge, so the first rungs of
+// the ladder are laid out from the launch actually made.
+function shapeDeparture(){
+  // No climb any more: the departure gates sit level at cruise height and just
+  // lead the aeroplane out to the handover point.
+  for(const g of depGates)g.y=depCruiseY;
+}
+/* Touchdown limits, close to what a real light aeroplane is judged by: sink
+   under 3 m/s (600 fpm) or it is a hard landing, main wheels first so the nose
+   is up, wings level, no side load on the gear, and on speed. */
+const FLARE_H=6;   // height at which the throttle starts coming back
+const LIMIT={sink:3.0,pitchLo:.5,pitchHi:15,bank:5,offset:5,drift:2.0,fast:1.30,slow:1.02};
+const TDZ=.40;                    // touchdown zone: the first 40% of the strip
+function stallSpeed(stage){return Math.sqrt(CFG.gravity/(AERO.kq*clPeak(FLAP.detent[stage])*liftBonus()))}
+function stageSpeed(stage){return stage?FLAP.vref[stage]*stallSpeed(stage):0}
+const gates=[];
+/* Corridors are laid out from the speeds actually being flown: each leg is the
+   distance needed to bleed to the next stage's speed, plus FLAP.hold seconds
+   settled there. Rebuilt every run, so upgrades reshape the approach. */
+function buildCorridors(){
+  const N=PLAN.length;
+  let d=FLAP.final;
+  GATE.offsets[N-1]=Math.round(d);
+  for(let i=N-1;i>=1;i--){
+    const v1=i===1?AERO.cruiseSpd:planSpeed(i-1),v2=planSpeed(i);
+    d+=Math.max(40,(v1*v1-v2*v2)/(2*(i===1?FLAP.decelHi:FLAP.decel)))+FLAP.hold*v2;
+    GATE.offsets[i-1]=Math.round(d);
+  }
+  // Place the first field so that clearing the last departure gate leaves
+  // exactly DEP.cruiseLeg seconds of cruise before the first approach gate.
+  const depEnd=DEP.offsets[DEP.offsets.length-1];
+  CFG.firstAirport=Math.round(depEnd+AERO.cruiseSpd*DEP.cruiseLeg+GATE.offsets[0]-GATE.aim);
+  for(const a of airports){
+    a.x=CFG.firstAirport+a.index*CFG.gap;
+    a.len=Math.max(230,CFG.runwayLength-a.index*9);
+    a.padY=baseTerrain(a.x+a.len*.5,0);
+    a.y=a.padY+.3;
+  }
+  // Departure ladder: climbs from the launch to the cruise height that lines
+  // straight up with the first approach gate.
+  // Top of climb sits above the first approach gate, so the cruise leg eases
+  // down into it rather than having to climb at the last moment.
+  const apGate1Y=airports[0].y+1.4+GATE.offsets[0]*Math.tan(GATE.slope);
+  const cruiseY=apGate1Y+DEP.topMargin;
+  depGates.length=0;
+  DEP.offsets.forEach((off,i)=>depGates.push({i,dep:true,x:off,z:0,r:DEP.radii[i],state:0,y:cruiseY}));
+  depCruiseY=cruiseY;
+  shapeDeparture(0);
+  gates.length=0;
+  for(const a of airports){
+    a.gates=GATE.offsets.map((off,i)=>({a,i,off,x:a.x+GATE.aim-off,z:0,
+      y:a.y+1.4+off*Math.tan(GATE.slope),r:GATE.radii[i],state:0}));
+    a.hits=0;a.armed=false;
+    gates.push(...a.gates);
+  }
+}
+buildCorridors();
+// Route map: one tick per field, positioned along the whole run.
+let routeLen=1;
+function buildProgress(){
+  const last=airports[airports.length-1];
+  routeLen=last.x+last.len+200;
+  ui.progTrack.querySelectorAll(".progTick,.progLbl").forEach(n=>n.remove());
+  for(const a of airports){
+    const pc=(a.x+a.len*TDZ)/routeLen*100;
+    const tick=document.createElement("div");
+    tick.className="progTick";tick.style.left=pc+"%";tick.dataset.i=a.index;
+    const lbl=document.createElement("div");
+    lbl.className="progLbl";lbl.style.left=pc+"%";lbl.textContent=`×${a.mult.toFixed(1)}`;
+    ui.progTrack.append(tick,lbl);
+  }
+}
+function depPathY(x){
+  if(!depGates.length)return 0;
+  const last=depGates[depGates.length-1];
+  if(x>=last.x)return last.y;
+  // Before the first rung the target is simply that rung's height, so the
+  // launch arc is free to climb over it rather than being held down.
+  let prevX=0,prevY=depGates[0].y;
+  for(const g of depGates){
+    if(x<=g.x)return lerp(prevY,g.y,(x-prevX)/Math.max(1,g.x-prevX));
+    prevX=g.x;prevY=g.y;
+  }
+  return last.y;
+}
+function glidePathY(a,x){return a.y+1.4+Math.max(0,a.x+GATE.aim-x)*Math.tan(GATE.slope)}
+function corridorStart(a){return a.gates[0].x-90}
+function approachAirport(){
+  for(const a of airports){
+    if(plane.x>a.x+a.len)continue;
+    return plane.x>corridorStart(a)?a:null;
+  }
+  return null;
+}
+function runwayAt(x,z=0){if(Math.abs(z)>8.5)return null;return airports.find(a=>x>=a.x&&x<=a.x+a.len)||null}
+function groundAt(x,z=0){const a=runwayAt(x,z);return a?a.y:terrain(x,z)}
+function nextAirport(){return airports.find(a=>a.x+a.len>plane.x+5)||airports[airports.length-1]}
+
+const trees=[];
+for(let i=0;i<420;i++){const x=rand(60,7400), side=Math.random()<.5?-1:1, z=side*rand(18,90);trees.push({x,z,s:rand(.65,1.35),tone:(i%3)})}
+const rocks=[];
+for(let i=0;i<210;i++){const x=rand(50,7400),side=Math.random()<.5?-1:1,z=side*rand(16,92);rocks.push({x,z,s:rand(.5,1.7)})}
+
+const cam={x:-22,y:10,z:0,lookX:18,lookY:8,lookZ:0,fov:600};
+function project(x,y,z){
+  const px=x-cam.x, py=y-cam.y, pz=z-cam.z;
+
+  // Rear chase camera: forward is almost entirely +X, with only slight
+  // vertical and lateral correction toward the aircraft. This keeps the
+  // plane centered like the reference screenshots instead of showing it
+  // from an oblique side angle.
+  const fx=cam.lookX-cam.x, fy=cam.lookY-cam.y, fz=cam.lookZ-cam.z;
+  const fl=Math.hypot(fx,fy,fz) || 1;
+  const F={x:fx/fl,y:fy/fl,z:fz/fl};
+
+  // World-up based camera basis.
+  let rx=F.z, ry=0, rz=-F.x;
+  const rl=Math.hypot(rx,rz) || 1;
+  rx/=rl; rz/=rl;
+  const ux=ry*F.z-rz*F.y;
+  const uy=rz*F.x-rx*F.z;
+  const uz=rx*F.y-ry*F.x;
+
+  const depth=px*F.x+py*F.y+pz*F.z;
+  if(depth<1)return null;
+
+  const side=px*rx+py*ry+pz*rz;
+  const up=px*ux+py*uy+pz*uz;
+  const s=cam.fov/depth;
+
+  return {x:W*.5+side*s,y:H*.53+up*s,s,depth};
+}
+function poly(points,fill,stroke=null,lw=1){
+  const ps=points.map(p=>project(p[0],p[1],p[2]));
+  if(ps.some(p=>!p))return;
+  ctx.beginPath();ctx.moveTo(ps[0].x,ps[0].y);for(let i=1;i<ps.length;i++)ctx.lineTo(ps[i].x,ps[i].y);ctx.closePath();ctx.fillStyle=fill;ctx.fill();
+  if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lw;ctx.stroke()}
+}
+
+function drawSky(){
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,"#70ccef");g.addColorStop(.5,"#b7ebff");g.addColorStop(.72,"#e9e2a9");g.addColorStop(1,"#c49a61");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.globalAlpha=.28;ctx.fillStyle="#fff6bd";ctx.beginPath();ctx.arc(W*.18,H*.14,Math.min(W,H)*.075,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+  const d=(plane.x*.07)%(W+240);cloud(W-d,H*.17,1);cloud(W*.5-d*.25,H*.27,.7);cloud(W*.86-d*.12,H*.11,.55);
+}
+function cloud(x,y,s){ctx.save();ctx.globalAlpha=.45;ctx.fillStyle="#fff";for(const [ox,oy,r] of [[-22,2,15],[-5,-7,21],[18,1,16]]){ctx.beginPath();ctx.arc(x+ox*s,y+oy*s,r*s,0,Math.PI*2);ctx.fill()}ctx.restore()}
+
+const SUN={x:.42,y:.82,z:-.39};   // unit vector toward the sun, for surface shading
+// Cast shadows use a low sun so they stretch out ahead of whatever throws them;
+// with a shallow chase camera a straight-down shadow falls below the view.
+const CAST={x:1.9,z:-1.0};        // metres of offset per metre of height
+const ZSTRIP=[-230,-165,-118,-85,-58,-30,0,30,58,85,118,165,230];
+function terrainShade(h,depth,lam){
+  const s=Math.floor(108+Math.sin(depth*.013)*8);
+  let r,g,b;
+  if(h<15){r=s-8;g=s+55;b=s-35}                          // valley grass
+  else if(h<34){r=s+4;g=s+32;b=s-30}                     // lower slope
+  else if(h<62){r=s+6;g=s-4;b=s-20}                      // bare rock
+  else if(h<92){r=s+26;g=s+18;b=s+6}                     // high scree
+  else {r=s+86;g=s+92;b=s+98}                            // snow
+  // Slopes facing away from the sun fall into shadow.
+  const k=.62+.52*lam;
+  return `rgb(${Math.round(clamp(r*k,0,255))},${Math.round(clamp(g*k,0,255))},${Math.round(clamp(b*k,0,255))})`;
+}
+function drawTerrain(){
+  const start=plane.x-40,end=plane.x+520,step=24;
+  const tiles=[];
+  for(let x=start;x<end;x+=step){
+    const n=x+step;
+    for(let k=0;k<ZSTRIP.length-1;k++){
+      const z0=ZSTRIP[k],z1=ZSTRIP[k+1];
+      const a=terrain(x,z0),b=terrain(n,z0),c=terrain(n,z1),d=terrain(x,z1);
+      // Surface normal from the tile's own slope, for the lighting.
+      const nx=-(b-a)/step, nz=-(d-a)/(z1-z0), nl=Math.hypot(nx,1,nz)||1;
+      const lam=clamp((nx*SUN.x+SUN.y+nz*SUN.z)/nl,0,1);
+      tiles.push({depth:n,h:(a+b+c+d)*.25,lam,pts:[[x,a,z0],[n,b,z0],[n,c,z1],[x,d,z1]]});
+    }
+  }
+  tiles.sort((p,q)=>q.depth-p.depth);
+  for(const t of tiles)poly(t.pts,terrainShade(t.h,t.depth,t.lam));
+}
+
+function drawRunway(a){
+  const y=a.y+.05,z=8;
+  poly([[a.x,y,-z],[a.x+a.len,y,-z],[a.x+a.len,y,z],[a.x,y,z]],"#555b65");
+  // Touchdown zone: a lighter apron at the near end with aiming-point bars,
+  // because only a touchdown inside it counts.
+  const tz=a.x+a.len*TDZ;
+  poly([[a.x,y+.02,-z],[tz,y+.02,-z],[tz,y+.02,z],[a.x,y+.02,z]],"#63697a");
+  for(const s of [-1,1])
+    poly([[a.x+18,y+.05,s*3.3],[a.x+30,y+.05,s*3.3],[a.x+30,y+.05,s*4.9],[a.x+18,y+.05,s*4.9]],"#fff");
+  poly([[tz-1.1,y+.05,-z],[tz+1.1,y+.05,-z],[tz+1.1,y+.05,z],[tz-1.1,y+.05,z]],"#ffd54f");
+  for(let d=12;d<a.len-8;d+=22)poly([[a.x+d,y+.03,-.25],[a.x+d+8,y+.03,-.25],[a.x+d+8,y+.03,.25],[a.x+d,y+.03,.25]],"#f4f0d8");
+  for(let s=-5;s<=5;s+=2.3)poly([[a.x+5,y+.04,s-.45],[a.x+12,y+.04,s-.45],[a.x+12,y+.04,s+.45],[a.x+5,y+.04,s+.45]],"#fff");
+  drawWindsock(a.x+20,a.y,-11);
+  drawSign(a.x+a.len*.5,a.y+2.2,-10,`×${a.mult.toFixed(1)}`);
+}
+
+function drawGate(g){
+  const N=30, pts=[];
+  for(let i=0;i<N;i++){
+    const t=Math.PI*2*i/N;
+    const p=project(g.x,g.y+Math.sin(t)*g.r,g.z+Math.cos(t)*g.r);
+    if(!p)return;
+    pts.push(p);
+  }
+  const hot=g.state===0&&plane.x>g.x-260;
+  const color=g.state===1?"#7ce69a":g.state===2?"#ff8a7a":hot?(g.dep?"#8fd8ff":"#ffffff"):"rgba(255,255,255,.55)";
+  ctx.save();
+  ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
+  for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);
+  ctx.closePath();
+  if(g.state===0){ctx.fillStyle=g.dep?"rgba(120,200,255,.14)":"rgba(120,190,255,.10)";ctx.fill()}
+  else if(g.state===1){ctx.fillStyle="rgba(124,230,154,.14)";ctx.fill()}
+  ctx.strokeStyle=color;
+  ctx.lineWidth=clamp(pts[0].s*.42,2,9);
+  ctx.globalAlpha=g.state===0?(hot?.95:.6):.85;
+  ctx.stroke();
+  // Chevrons at the top and bottom mark the centre of the corridor.
+  ctx.globalAlpha=g.state===0?.8:.55;
+  ctx.lineWidth=clamp(pts[0].s*.22,1.2,4.5);
+  for(const s of [-1,1]){
+    const tip=project(g.x,g.y+s*g.r*.42,g.z),a=project(g.x,g.y+s*g.r*.62,g.z-g.r*.16),b=project(g.x,g.y+s*g.r*.62,g.z+g.r*.16);
+    if(tip&&a&&b){ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(tip.x,tip.y);ctx.lineTo(b.x,b.y);ctx.stroke()}
+  }
+  ctx.restore();
+}
+
+function drawWindsock(x,y,z){
+  const p1=project(x,y,z),p2=project(x,y+6,z);if(!p1||!p2)return;
+  ctx.strokeStyle="#f4f4f0";ctx.lineWidth=Math.max(1,p2.s*.12);ctx.beginPath();ctx.moveTo(p1.x,p1.y);ctx.lineTo(p2.x,p2.y);ctx.stroke();
+  const dir=wind.x>=0?1:-1;const p3=project(x+dir*5,y+5.5,z);if(!p3)return;
+  ctx.fillStyle="#ff734d";ctx.beginPath();ctx.moveTo(p2.x,p2.y);ctx.lineTo(p3.x,p3.y);ctx.lineTo(lerp(p2.x,p3.x,.28),lerp(p2.y,p3.y,.28)+Math.max(3,p2.s*.28));ctx.closePath();ctx.fill();
+}
+function drawSign(x,y,z,text){
+  const p=project(x,y,z);if(!p)return;const w=clamp(p.s*5,30,72),h=clamp(p.s*2.5,18,34);
+  ctx.fillStyle="rgba(28,34,45,.82)";roundRect(p.x-w/2,p.y-h,w,h,7);ctx.fill();
+  ctx.fillStyle="#ffd34e";ctx.font=`900 ${clamp(p.s*1.45,12,20)}px system-ui`;ctx.textAlign="center";ctx.textBaseline="middle";ctx.fillText(text,p.x,p.y-h/2);
+}
+function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath()}
+
+function drawTree(t){
+  if(t.x<plane.x-70||t.x>plane.x+500)return;
+  const gy=terrain(t.x,t.z), base=project(t.x,gy,t.z),top=project(t.x,gy+10*t.s,t.z);if(!base||!top)return;
+  const th=10*t.s, sh=project(t.x+th*CAST.x*.55,gy+.05,t.z+th*CAST.z*.55);
+  if(sh){ctx.save();ctx.globalAlpha=.2;ctx.fillStyle="#243027";
+    ctx.beginPath();ctx.ellipse(sh.x,sh.y,clamp(base.s*4.2*t.s,2,26),clamp(base.s*1.5*t.s,1,11),0,0,Math.PI*2);ctx.fill();ctx.restore()}
+  const trunkW=clamp(base.s*.7*t.s,1.2,8);
+  ctx.strokeStyle="#8d623f";ctx.lineWidth=trunkW;ctx.beginPath();ctx.moveTo(base.x,base.y);ctx.lineTo(top.x,top.y);ctx.stroke();
+  const colors=["#8fc74e","#a6d75c","#77b441"],r=clamp(top.s*3.8*t.s,4,30);
+  ctx.fillStyle=colors[t.tone];ctx.beginPath();
+  const n=6;for(let i=0;i<n;i++){const a=Math.PI*2*i/n+.2,rr=r*(i%2?.8:1.1),x=top.x+Math.cos(a)*rr,y=top.y+Math.sin(a)*rr*.72;(i?ctx.lineTo(x,y):ctx.moveTo(x,y))}ctx.closePath();ctx.fill();
+  ctx.fillStyle=colors[(t.tone+1)%3];ctx.beginPath();ctx.arc(top.x-r*.35,top.y-r*.28,r*.55,0,Math.PI*2);ctx.fill();
+}
+function drawRock(r){
+  if(r.x<plane.x-60||r.x>plane.x+500)return;
+  const p=project(r.x,terrain(r.x,r.z)+.4*r.s,r.z);if(!p)return;const s=clamp(p.s*r.s*1.7,2,16);
+  ctx.save();ctx.globalAlpha=.18;ctx.fillStyle="#243027";
+  ctx.beginPath();ctx.ellipse(p.x+s*.5,p.y+s*.3,s*.9,s*.35,0,0,Math.PI*2);ctx.fill();ctx.restore();ctx.fillStyle="#d8d5ca";ctx.beginPath();ctx.moveTo(p.x-s,p.y);ctx.lineTo(p.x-s*.4,p.y-s*.8);ctx.lineTo(p.x+s*.45,p.y-s*.65);ctx.lineTo(p.x+s,p.y);ctx.lineTo(p.x+s*.25,p.y+s*.45);ctx.closePath();ctx.fill();
+}
+
+function drawHangar(){
+  if(plane.x>180)return;
+  const x=-16,y=terrain(-16,78),z=78;
+  poly([[x-30,y,z-22],[x+24,y,z-22],[x+24,y+16,z-22],[x-30,y+16,z-22]],"#765038");
+  poly([[x-30,y+16,z-22],[x+24,y+16,z-22],[x+24,y+16,z+22],[x-30,y+16,z+22]],"#3e2d24");
+  poly([[x+24,y,z-22],[x+24,y,z+22],[x+24,y+16,z+22],[x+24,y+16,z-22]],"#9a6a46");
+}
+
+/* ---------- Slingshot launcher ---------- */
+function slingTip(side){
+  const gy=terrain(SLING.x,SLING.z*side);
+  return [SLING.x,gy+SLING.h,SLING.z*side];
+}
+function pouchPoint(side){
+  // The band cradles the belly of the fuselage, one strap per side.
+  return [plane.x-1.5,plane.y-1.15,plane.z+1.5*side];
+}
+function drawSlingPosts(){
+  if(plane.x>150)return;
+
+  // Two forked posts, each built from a front/back face plus an angled fork arm.
+  for(const side of [-1,1]){
+    const z=SLING.z*side, gy=terrain(SLING.x,z), h=SLING.h;
+    poly([[SLING.x-1.05,gy,z-.62],[SLING.x+1.05,gy,z-.62],[SLING.x+.62,gy+h*.62,z-.5],[SLING.x-.62,gy+h*.62,z-.5]],"#7a5334","rgba(48,32,20,.5)",1);
+    poly([[SLING.x-1.05,gy,z+.62],[SLING.x+1.05,gy,z+.62],[SLING.x+.62,gy+h*.62,z+.5],[SLING.x-.62,gy+h*.62,z+.5]],"#5f3f26","rgba(48,32,20,.5)",1);
+    // fork arm leans outward toward the tip
+    const tz=z+.9*side;
+    poly([[SLING.x-.62,gy+h*.62,z-.5],[SLING.x+.62,gy+h*.62,z-.5],[SLING.x+.45,gy+h,tz-.42],[SLING.x-.45,gy+h,tz-.42]],"#8a5f3b","rgba(48,32,20,.5)",1);
+    poly([[SLING.x-.62,gy+h*.62,z+.5],[SLING.x+.62,gy+h*.62,z+.5],[SLING.x+.45,gy+h,tz+.42],[SLING.x-.45,gy+h,tz+.42]],"#6b482c","rgba(48,32,20,.5)",1);
+    // base plate
+    poly([[SLING.x-2.2,gy+.05,z-2],[SLING.x+2.2,gy+.05,z-2],[SLING.x+2.2,gy+.05,z+2],[SLING.x-2.2,gy+.05,z+2]],"#4a4f57");
+  }
+}
+// Drawn after the plane so the straps read as wrapping around the fuselage.
+function drawSlingBands(){
+  if(plane.x>150)return;
+  const loaded=(state===STATE.READY||state===STATE.CHARGE||state===STATE.MENU);
+  if(!loaded&&snap<=0)return;
+  ctx.save();
+  ctx.lineCap="round";
+  const ends=[];
+  for(const side of [-1,1]){
+    const t=slingTip(side), a=project(t[0],t[1],t[2]);
+    if(!a)continue;
+    let e;
+    if(loaded){
+      e=pouchPoint(side);
+    }else{
+      // slack band whipping back between the two tips right after release
+      const o=slingTip(-side);
+      e=[(t[0]+o[0])/2,(t[1]+o[1])/2-1.2+Math.sin(snap*40)*snap*4,(t[2]+o[2])/2];
+    }
+    const b=project(e[0],e[1],e[2]);
+    if(!b)continue;
+    ends.push(b);
+    ctx.strokeStyle=loaded?"#3a2830":"#46313c";
+    ctx.lineWidth=Math.max(1.8,a.s*(loaded?.15:.12));
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+  }
+  // Leather pouch strap under the belly.
+  if(loaded&&ends.length===2){
+    ctx.strokeStyle="#4a3226";
+    ctx.lineWidth=Math.max(3,ends[0].s*.34);
+    ctx.beginPath();ctx.moveTo(ends[0].x,ends[0].y);ctx.lineTo(ends[1].x,ends[1].y);ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function rotateLocal(v){
+  let x=v[0],y=v[1],z=v[2];
+
+  // Pitch around Z
+  let c=Math.cos(plane.pitch), q=Math.sin(plane.pitch);
+  let nx=x*c-y*q, ny=x*q+y*c;
+  x=nx;y=ny;
+
+  // Roll around X
+  c=Math.cos(plane.roll); q=Math.sin(plane.roll);
+  ny=y*c-z*q; let nz=y*q+z*c;
+  y=ny;z=nz;
+
+  // Yaw around Y
+  c=Math.cos(plane.yaw); q=Math.sin(plane.yaw);
+  nx=x*c+z*q; nz=-x*q+z*c;
+  x=nx;z=nz;
+
+  return [plane.x+x,plane.y+y,plane.z+z];
+}
+
+// Silhouette dropped onto the ground below, banking and yawing with the
+// aeroplane. It is the clearest cue for how high you actually are.
+// Traced once around the aeroplane's plan view: nose, down one side of the
+// fuselage, out along that wing and back, the tailplane, the tail cone, then
+// the mirror image up the other side.
+const SHADOW_OUTLINE=(()=>{
+  const half=[
+    [9.10,0], [5.50,1.00], [2.50,0.72], [0.80,9.70], [-0.60,9.70], [-1.70,0.72],
+    [-4.55,0.50], [-5.15,4.15], [-6.00,4.15], [-6.05,0.50]
+  ];
+  const pts=half.map(([x,z])=>[x,0,z]);
+  pts.push([-6.60,0,0]);
+  for(let i=half.length-1;i>=0;i--)pts.push([half[i][0],0,-half[i][1]]);
+  return pts;
+})();
+function drawPlaneShadow(){
+  const agl=plane.y-groundAt(plane.x,plane.z);
+  if(agl>150)return;
+  // Cast along the sun, not straight down — so the shadow sits clear of the
+  // aeroplane and slides in to meet it as the wheels come down.
+  const ox=agl*CAST.x, oz=agl*CAST.z;
+  const pts=[];
+  for(const v of SHADOW_OUTLINE){
+    const w=rotateLocal(v);
+    const sx=w[0]+ox, sz=w[2]+oz;
+    const p=project(sx,groundAt(sx,sz)+.08,sz);
+    if(!p)return;
+    pts.push(p);
+  }
+  ctx.save();
+  ctx.globalAlpha=clamp(.34*(1-agl/150),.03,.34);
+  ctx.fillStyle="#22303a";
+  ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
+  for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);
+  ctx.closePath();ctx.fill();
+  ctx.restore();
+}
+function drawPlane(){
+  // Clean custom 3D trainer / bush-plane mesh.
+  // Local axes: X forward, Y up, Z right.
+  const verts=[];
+  const faces=[];
+
+  function addV(x,y,z){ verts.push([x,y,z]); return verts.length-1; }
+  function addFace(indices,color){ faces.push({i:indices,c:color}); }
+
+  // Fuselage: elliptical cross-sections tapering from nose to tail.
+  const rings=[
+    {x: 8.7, ry:.18, rz:.18},
+    {x: 7.7, ry:.72, rz:.72},
+    {x: 5.5, ry:1.02, rz:1.00},
+    {x: 2.0, ry:1.20, rz:1.12},
+    {x:-1.8, ry:1.08, rz:1.00},
+    {x:-4.5, ry:.72, rz:.68},
+    {x:-6.6, ry:.25, rz:.22}
+  ];
+  const ringIds=[];
+  const seg=8;
+  for(const r of rings){
+    const ids=[];
+    for(let j=0;j<seg;j++){
+      const a=Math.PI*2*j/seg;
+      ids.push(addV(r.x,Math.sin(a)*r.ry,Math.cos(a)*r.rz));
+    }
+    ringIds.push(ids);
+  }
+  for(let k=0;k<ringIds.length-1;k++){
+    for(let j=0;j<seg;j++){
+      const n=(j+1)%seg;
+      const topish=(j>=1&&j<=3);
+      addFace([ringIds[k][j],ringIds[k][n],ringIds[k+1][n],ringIds[k+1][j]],
+              topish ? "#eccb97" : (j>=4&&j<=6 ? "#cfa06b" : "#dfb77f"));
+    }
+  }
+
+  // Main wings: swept/tapered with thickness.
+  function wing(sign){
+    const z0=.72*sign, z1=9.7*sign;
+    const rootFront=addV(2.5,.08,z0), rootBack=addV(-1.7,.08,z0);
+    const tipFront=addV(.8,.05,z1), tipBack=addV(-.6,.05,z1);
+    const rootFrontB=addV(2.35,-.22,z0), rootBackB=addV(-1.55,-.22,z0);
+    const tipFrontB=addV(.72,-.13,z1), tipBackB=addV(-.52,-.13,z1);
+    addFace([rootFront,tipFront,tipBack,rootBack],"#edd09d");
+    addFace([rootFrontB,rootBackB,tipBackB,tipFrontB],"#cfa575");
+    addFace([rootFront,rootFrontB,tipFrontB,tipFront],"#ddb581");
+    addFace([tipFront,tipFrontB,tipBackB,tipBack],"#b98c60");
+    addFace([rootBack,tipBack,tipBackB,rootBackB],"#c79a69");
+
+    // Landing flaps, hinged on the inboard trailing edge.
+    if(flap>.02){
+      const th=rad(25)*flap, c=Math.cos(th), sn=Math.sin(th), ch=1.05;
+      const zm=z0+(z1-z0)*.42;
+      const hx0=-1.7, hy0=.02, hx1=-1.24, hy1=.01;
+      const tx0=hx0-ch*c, ty0=hy0-ch*sn, tx1=hx1-ch*c, ty1=hy1-ch*sn;
+      const g0=addV(hx0,hy0,z0), g1=addV(hx1,hy1,zm);
+      const t0=addV(tx0,ty0,z0), t1=addV(tx1,ty1,zm);
+      const g0b=addV(hx0,hy0-.11,z0), g1b=addV(hx1,hy1-.11,zm);
+      const t0b=addV(tx0,ty0-.09,z0), t1b=addV(tx1,ty1-.09,zm);
+      addFace([g0,g1,t1,t0],"#dcb384");        // upper surface
+      addFace([g0b,t0b,t1b,g1b],"#a87f56");    // under surface
+      addFace([t0,t1,t1b,t0b],"#9c7149");      // trailing edge
+      addFace([g0,t0,t0b,g0b],"#b58a5e");      // inboard end
+      addFace([g1,g1b,t1b,t1],"#b58a5e");      // outboard end
+    }
+  }
+  wing(-1); wing(1);
+
+  // Horizontal stabilizers.
+  function tailWing(sign){
+    const z0=.38*sign,z1=4.15*sign;
+    const a=addV(-4.55,.48,z0), b=addV(-5.15,.48,z1);
+    const c=addV(-6.0,.48,z1), d=addV(-6.05,.48,z0);
+    const ab=addV(-4.58,.28,z0), bb=addV(-5.17,.28,z1);
+    const cb=addV(-5.95,.28,z1), db=addV(-6.02,.28,z0);
+    addFace([a,b,c,d],"#e7c58f");
+    addFace([ab,db,cb,bb],"#c79a69");
+    addFace([b,bb,cb,c],"#b9895e");
+  }
+  tailWing(-1); tailWing(1);
+
+  // Vertical stabilizer.
+  const f0=addV(-4.8,.55,0), f1=addV(-5.25,3.65,0), f2=addV(-6.25,.45,0);
+  const f0b=addV(-4.8,.55,.14), f1b=addV(-5.25,3.65,.08), f2b=addV(-6.25,.45,.12);
+  addFace([f0,f1,f2],"#9c6843"); addFace([f0b,f2b,f1b],"#875839");
+  addFace([f0,f0b,f1b,f1],"#ad754d");
+
+  // Cockpit canopy, with a raised windshield and cabin roof.
+  const canopy=[
+    addV(3.2,1.00,-.72), addV(3.2,1.00,.72),
+    addV(2.35,1.72,-.72), addV(2.35,1.72,.72),
+    addV(-.8,1.55,-.78), addV(-.8,1.55,.78),
+    addV(-1.65,1.00,-.72), addV(-1.65,1.00,.72)
+  ];
+  addFace([canopy[0],canopy[1],canopy[3],canopy[2]],"#7797a7");
+  addFace([canopy[2],canopy[3],canopy[5],canopy[4]],"#587b8d");
+  addFace([canopy[0],canopy[2],canopy[4],canopy[6]],"#66899b");
+  addFace([canopy[1],canopy[7],canopy[5],canopy[3]],"#4f7183");
+  addFace([canopy[4],canopy[5],canopy[7],canopy[6]],"#6d8e9f");
+
+  // Engine cowling ring.
+  const cow=[];
+  for(let j=0;j<10;j++){
+    const a=Math.PI*2*j/10;
+    cow.push(addV(7.82,Math.sin(a)*.84,Math.cos(a)*.84));
+  }
+  const hub=addV(9.1,0,0);
+  for(let j=0;j<10;j++){
+    const n=(j+1)%10;
+    addFace([hub,cow[j],cow[n]],j%2?"#b77e50":"#c58b59");
+  }
+
+  // Propeller first: drawn under the airframe so the fuselage hides the part
+  // of the disc behind it instead of the blades floating over the body.
+  // Spinning propeller at the nose.
+  const nose=project(...rotateLocal([9.18,0,0]));
+  const up=project(...rotateLocal([9.18,1.75,0]));
+  const side=project(...rotateLocal([9.18,0,1.75]));
+  if(nose&&up&&side){
+    const ry=Math.max(7,Math.hypot(up.x-nose.x,up.y-nose.y));
+    const rx=Math.max(7,Math.hypot(side.x-nose.x,side.y-nose.y));
+    ctx.save();
+    ctx.globalAlpha=.12;ctx.strokeStyle="#31414b";ctx.lineWidth=2;
+    ctx.beginPath();ctx.ellipse(nose.x,nose.y,rx,ry,0,0,Math.PI*2);ctx.stroke();
+    ctx.globalAlpha=.5;ctx.lineWidth=Math.max(1.5,Math.min(5,rx*.12));
+    const spin=performance.now()*.019;
+    for(let k=0;k<2;k++){
+      const a=spin+k*Math.PI/2;
+      ctx.beginPath();
+      ctx.moveTo(nose.x-Math.cos(a)*rx*.9,nose.y-Math.sin(a)*ry*.9);
+      ctx.lineTo(nose.x+Math.cos(a)*rx*.9,nose.y+Math.sin(a)*ry*.9);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  const worldVerts=verts.map(rotateLocal);
+  const projectedFaces=[];
+  for(const f of faces){
+    const ps=f.i.map(i=>project(worldVerts[i][0],worldVerts[i][1],worldVerts[i][2]));
+    if(ps.some(q=>!q))continue;
+    projectedFaces.push({
+      ps,c:f.c,
+      depth:ps.reduce((a,q)=>a+q.depth,0)/ps.length
+    });
+  }
+  projectedFaces.sort((a,b)=>b.depth-a.depth);
+  for(const f of projectedFaces){
+    ctx.beginPath();ctx.moveTo(f.ps[0].x,f.ps[0].y);
+    for(let i=1;i<f.ps.length;i++)ctx.lineTo(f.ps[i].x,f.ps[i].y);
+    ctx.closePath();ctx.fillStyle=f.c;ctx.fill();
+    ctx.strokeStyle="rgba(76,53,38,.46)";
+    ctx.lineWidth=Math.max(.7,Math.min(1.5,f.ps[0].s*.07));ctx.stroke();
+  }
+
+  // Landing gear: transform attachment points too, so gear follows bank/pitch.
+  function line3(a,b,width,color){
+    const A=project(...rotateLocal(a)),B=project(...rotateLocal(b));if(!A||!B)return;
+    ctx.strokeStyle=color;ctx.lineWidth=Math.max(1,A.s*width);
+    ctx.beginPath();ctx.moveTo(A.x,A.y);ctx.lineTo(B.x,B.y);ctx.stroke();
+  }
+  // Gear swings up into the belly as `gear` runs from 1 to 0.
+  if(gear>.04){
+    const g=gear, mix=(a,b)=>[lerp(a[0],b[0],g),lerp(a[1],b[1],g),lerp(a[2],b[2],g)];
+    for(const side of [-1,1]){
+      const top=[-.3,-.55,2.15*side];
+      const down=[-.55,-1.85,2.75*side], up=[-.42,-.66,1.75*side];
+      const foot=mix(up,down);
+      line3(top,foot,.09,"#665344");
+      const q=project(...rotateLocal(foot));
+      if(q){
+        const rr=clamp(q.s*.43,3,8.5)*(.35+.65*g);
+        ctx.fillStyle="#302d2a";ctx.beginPath();ctx.ellipse(q.x,q.y,rr*.72,rr,0,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle="#a89b8c";ctx.beginPath();ctx.arc(q.x,q.y,rr*.3,0,Math.PI*2);ctx.fill();
+      }
+    }
+    // Tail wheel.
+    const tf=[lerp(-5.68,-5.8,g),lerp(-.34,-.8,g),0];
+    line3([-5.6,-.25,0],tf,.06,"#665344");
+    const tw=project(...rotateLocal(tf));
+    if(tw){const rr=clamp(tw.s*.22,1.7,4)*(.4+.6*g);ctx.fillStyle="#302d2a";ctx.beginPath();ctx.arc(tw.x,tw.y,rr,0,Math.PI*2);ctx.fill()}
+  }
+
+}
+
+function updateWind(dt){
+  const wm=(airports[0].x?nextAirport():airports[0]).windMax;
+  wind.timer-=dt;
+  if(wind.timer<=0){wind.targetX=rand(-wm,wm);wind.targetZ=rand(-wm*.25,wm*.25);wind.timer=rand(5,9)}
+  wind.x=lerp(wind.x,wind.targetX,1-Math.pow(.35,dt));
+  wind.z=lerp(wind.z,wind.targetZ,1-Math.pow(.35,dt));
+  wind.gust=Math.sin(performance.now()*.0022)*.6*(wm/4);
+}
+function flight(dt){
+  // Flaps run out on a screwjack: a fixed rate, not an instant snap.
+  const flapWant=FLAP.detent[flapStage];
+  flap+=clamp(flapWant-flap,-FLAP.rate*dt,FLAP.rate*dt);
+  // Gear follows the real sequence: down for the departure, up once safely
+  // climbing away, and back down at the first gate along with flaps 1 — the
+  // point that stands in for "abeam the touchdown point" on downwind.
+  const gearWant=(landingMode||!cruiseReached)?1:0;
+  const gearWas=gear;
+  gear+=clamp(gearWant-gear,-AERO.gearRate*dt,AERO.gearRate*dt);
+  if(gearWas<1&&gear>=1)toast("GEAR DOWN",true);
+
+  const gnd=groundAt(plane.x,plane.z);
+  const h=Math.max(0,plane.y-gnd);
+  const geT=clamp(1-h/AERO.geH,0,1);          // 0 up high, 1 right on the deck
+
+  // Everything is driven by the air-relative velocity, so wind is felt properly.
+  const ax=plane.vx-wind.x, ay=plane.vy, az=plane.vz-wind.z;
+  const V=Math.max(5,Math.hypot(ax,ay,az));
+  const Vxy=Math.max(4,Math.hypot(ax,ay));
+  const gamma=Math.atan2(ay,ax);              // flight path angle
+
+  // The stick commands load factor, not raw attitude. Neutral holds the flight
+  // path (bleeding off a little, so it eases into a glide), back stick pulls
+  // g for the flare. The elevator then chases the angle of attack that gives
+  // it, which keeps the plane flyable, self-recovering and easy to land.
+  const q=AERO.kq*V*V;
+  const ge=1+AERO.geMax*geT*geT;
+  const lb=liftBonus(), peak=clPeak(flap);
+  // Climb-out: the aeroplane flies itself until it has settled at cruise, so
+  // the pitch stick is inert for the first few seconds after the launch.
+  climbTime+=dt;
+  // Steering comes back at the third climbing gate and nowhere else; this is
+  // only a safety net in case the ladder is never reached at all.
+  if(!cruiseReached&&climbTime>40)handOver();
+  // On departure the aeroplane flies the ladder itself and the pilot only gets
+  // a nudge; past the last departure gate the stick is fully live.
+  // The climb-out is flown entirely by the autopilot — the stick is dead until
+  // the last departure gate hands control over.
+  let stickY;
+  if(cruiseReached)stickY=joy.y;
+  else stickY=clamp((depPathY(plane.x)-plane.y)*.22-plane.vy*.30,-1,1);
+  const nCmd=CFG.gravity*Math.cos(gamma)*AERO.trim+(stickY>=0?stickY*AERO.gUp:stickY*AERO.gDown);
+  const clWant=nCmd/Math.max(q*ge*lb,1e-3);
+  const aoaTarget=clamp(clWant,-peak*.55,peak)/AERO.clA+AERO.a0-AERO.flapCl/AERO.clA*flap;
+  const targetPitch=clamp(gamma+aoaTarget,CFG.minPitch,CFG.maxPitch);
+  plane.pitch=lerp(plane.pitch,targetPitch,1-Math.pow(.02,dt));
+  stalling=clWant>peak;
+
+  // Bank. Wings level themselves in ground effect so touchdown stays flat.
+  const steerX=cruiseReached?-joy.x:0;
+  const bankMax=cruiseReached?rad(34):DEP.bank;
+  let rollTarget=clamp(steerX*bankMax,-bankMax,bankMax);
+  rollTarget=lerp(rollTarget,0,clamp(geT*.6+flap*.25,0,.8));
+  rollTarget*=1-stallDepth*.7;   // ailerons lose their bite once stalled
+  plane.roll=lerp(plane.roll,rollTarget,1-Math.pow(.015,dt));
+  plane.yaw=clamp(plane.yaw+steerX*rad(24)*(1-geT*.5)*dt,rad(-26),rad(26));
+
+  // Lift acts perpendicular to the airflow, drag along it. Both come from the
+  // attitude the plane actually has, so the stall curve still bites.
+  const aoa=plane.pitch-gamma;
+  const cl=liftCoef(aoa,flap)*lb;
+  // The airframe upgrade cleans up the aeroplane, but it does not shrink the
+  // flaps — otherwise a maxed-out plane could never slow down to land.
+  const cd=(AERO.cd0+AERO.kInd*cl*cl*(1-.45*geT)+AERO.cdStall*aoaExcess(aoa,flap))*dragBonus()
+          +AERO.flapCd*flap+AERO.gearCd*gear;
+  const L=q*cl*ge, D=q*cd;
+
+  const ux=ax/Vxy, uy=ay/Vxy;                 // unit vector along the airflow
+  const gust=wind.gust*.45*(1-geT*.75);
+  plane.vx+=(-D*ux-L*uy)*dt;
+  plane.vy+=(-D*uy+L*ux-CFG.gravity+gust)*dt;
+
+  /* Stall. Approaching the critical angle the airframe buffets as a warning;
+     past it the wing lets go — the nose breaks downward, one wing drops and
+     takes the aeroplane with it. Recovery is the real one: unload, let the
+     nose fall, pick up speed, then level the wings. */
+  const vsNow=stallSpeed(flapStage);
+  stallWarn=V<vsNow*1.12;
+  const target=clamp(aoaExcess(aoa,flap)/rad(7),0,1);
+  stallDepth=lerp(stallDepth,target,1-Math.pow(.05,dt));
+  if(stallDepth>.03){
+    if(!wasStalled){wasStalled=true;stallSide=Math.random()<.5?-1:1;toast("STALL!",false)}
+    plane.pitch-=stallDepth*rad(34)*dt;              // the nose breaks
+    plane.roll+=stallSide*stallDepth*rad(26)*dt;      // a wing falls away
+    plane.vz+=stallSide*stallDepth*6.5*dt;            // and it rolls off heading
+    shake=Math.max(shake,.04+stallDepth*.20);
+  }else{
+    if(stallDepth<.01)wasStalled=false;
+    if(stallWarn)shake=Math.max(shake,.015+clamp(1-V/(vsNow*1.12),0,1)*.42);
+  }
+
+  // The landing system only holds while the plane stays in the corridor.
+  const ap=landingMode?approachAirport():null;
+  spdTarget=0;
+  if(landingMode){
+    const strayed=ap
+      ? Math.abs(plane.z)>16||Math.abs(plane.y-glidePathY(ap,plane.x))>32
+      : landingAuto;                       // armed by a gate, then flew past it
+    if(strayed){
+      setFlapStage(0);
+      toast("LANDING SYSTEM OFF",false);
+    }
+  }
+  // Throttle, not a speed clamp. On approach the lever is set for the stage
+  // speed and closes to idle when fast — the aeroplane then slows only as fast
+  // as flap drag allows, which is the whole point of extending them in stages.
+  // Clean, it holds cruise speed — so the launch overspeed bleeds off and the
+  // aeroplane settles into a cruise. Configured, it holds the stage speed.
+  spdTarget=landingMode?(apGate>=0?planSpeed(apGate):planSpeed(0)):AERO.cruiseSpd;
+  let thrCmd=clamp((landingMode?AERO.appBias:AERO.cruiseBias)+(spdTarget-V)*AERO.thrK,0,1);
+  // Real technique: from the roundout the lever comes back smoothly so the
+  // engine is at idle by the time the main wheels touch — never chopped, which
+  // would drop the aeroplane in.
+  if(landingMode&&h<FLARE_H)thrCmd*=clamp((h-1.4)/(FLARE_H-1.4),0,1);
+  // No oil, no engine.
+  fuel=Math.max(0,fuel-throttle*dt);
+  if(fuel<=0){
+    thrCmd=0;
+    if(!dry){dry=true;toast("OIL OUT — GLIDING",false)}
+  }
+  throttle=lerp(throttle,thrCmd,1-Math.exp(-AERO.spool*dt));
+  const th=AERO.thrustMax*throttle*(cruiseReached?1:AERO.climbBoost);
+  plane.vx+=th*ux*dt;
+  plane.vy+=th*uy*dt;
+
+  // Banked lift turns the plane; side drag and ground effect bleed the drift.
+  plane.vz+=Math.sin(plane.roll)*L*.9*dt;
+  plane.vz+=Math.sin(plane.yaw)*Vxy*.1*dt;
+  plane.vz-=plane.vz*(.9+geT*2.2+flap*.5)*dt;
+  plane.vz+=(wind.z-plane.vz)*.05*dt;
+
+  const px=plane.x,py=plane.y,pz=plane.z;
+  plane.x+=plane.vx*dt;
+  plane.y+=plane.vy*dt;
+  plane.z+=plane.vz*dt;
+  checkGates(px,py,pz);
+
+  // Ground height is re-read after the move, so the runway lip is picked up
+  // rather than the terrain the step started over.
+  if(plane.y<=groundAt(plane.x,plane.z)+1.4){
+    const a=runwayAt(plane.x,plane.z);
+    if(!a){crash("CRASH");return}
+    // A real touchdown, judged the way one actually is: main wheels first on
+    // the centreline, wings level, no drift, on speed, inside the zone.
+    const sink=Math.max(0,-plane.vy), p=deg(plane.pitch), bank=Math.abs(deg(plane.roll));
+    const drift=Math.abs(plane.vz);
+    const vAir=Math.max(0,plane.vx-wind.x);   // the wing only knows airspeed
+    const vref=planSpeed(PLAN.length-1);
+    // Ground effect genuinely lowers the stall speed, so judge "too slow"
+    // against the stall in the cushion rather than the free-air figure.
+    const vs=stallSpeed(flapStage)/Math.sqrt(ge);
+    const chk={
+      "GEAR UP!":gear>.85,
+      "MISSED RUNWAY":Math.abs(plane.z)<8,
+      "LANDED LONG":plane.x<=a.x+a.len*TDZ,
+      "HARD LANDING":sink<LIMIT.sink,
+      "NOSE FIRST":p>LIMIT.pitchLo,
+      "TAIL STRIKE":p<LIMIT.pitchHi,
+      "WING DOWN":bank<LIMIT.bank,
+      "OFF CENTRELINE":Math.abs(plane.z)<LIMIT.offset,
+      "SIDE LOAD":drift<LIMIT.drift,
+      "TOO FAST":vAir<vref*LIMIT.fast,
+      "TOO SLOW":vAir>vs*LIMIT.slow
+    };
+    const bad=Object.keys(chk).find(k=>!chk[k]);
+    if(!bad)land(a,sink);
+    else crash(bad)
+  }
+}
+let toastTimer=0;
+function toast(text,good){
+  ui.toast.textContent=text;
+  ui.toast.className="show "+(good?"good":"bad");
+  toastTimer=1.1;
+}
+function handOver(){
+  if(cruiseReached)return;
+  cruiseReached=true;
+  ui.joystickWrap.style.display="block";
+  restJoystick();
+  toast("CRUISE · YOU HAVE CONTROL",true);
+}
+function checkGates(px,py,pz){
+  const span=plane.x-px;
+  if(span<=0)return;
+  for(const g of depGates){
+    if(g.state||g.x<=px||g.x>plane.x)continue;
+    const t=(g.x-px)/span;
+    const dr=Math.hypot(lerp(py,plane.y,t)-g.y,lerp(pz,plane.z,t)-g.z);
+    g.state=dr<=g.r?1:2;
+    if(g.state===1){depHits++;toast(`DEPARTURE ${g.i+1}/${depGates.length}`,true)}
+    // The last one is the cruise checkpoint: the stick comes back here.
+    if(g.i===depGates.length-1&&!cruiseReached)handOver();
+  }
+  for(const g of gates){
+    if(g.state||g.x<=px||g.x>plane.x)continue;
+    // Arriving at the first ring hands the plane to the landing system.
+    const t=(g.x-px)/span;
+    const dr=Math.hypot(lerp(py,plane.y,t)-g.y,lerp(pz,plane.z,t)-g.z);
+    const hit=dr<=g.r&&Math.abs(deg(plane.roll))<28;
+    if(hit){g.state=1;g.a.hits++}else g.state=2;
+
+    if(g.i===0){
+      // Flying the first gate is what commits you to the approach. Miss it and
+      // the aeroplane simply carries on at cruise to the next field.
+      if(hit){
+        g.a.armed=true;apGate=0;
+        setFlapStage(PLAN[0].flap??0,true);
+        landingMode=true;landingAuto=true;
+        ui.landBtn.classList.add("on");ui.landState.textContent="APPROACH";
+        toast("LANDING SEQUENCE ARMED",true);
+      }else toast("GATE 1 MISSED — CRUISING ON",false);
+    }else if(g.a.armed){
+      apGate=Math.max(apGate,g.i);
+      const wantFlap=PLAN[g.i].flap;
+      if(wantFlap!==null&&flapStage<wantFlap)setFlapStage(wantFlap);
+      toast(hit?`GATE ${g.i+1}/${g.a.gates.length}`+(wantFlap!==null?` · FLAPS ${wantFlap}`:""):"OFF CORRIDOR",hit);
+    }
+  }
+}
+function approachBonus(a){return 1+.06*(a?a.hits:0)}
+function land(a,sink){
+  state=STATE.ROLL;landed=a;rollTime=0;touchdown=sink;spdTarget=0;
+  landQuality=sink<.6?{key:"GREASER",bonus:1.20}:sink<1.2?{key:"SMOOTH",bonus:1.10}:{key:"FIRM",bonus:1};
+  // Let the gear soak up the impact instead of snapping the plane onto the deck.
+  plane.vy=Math.max(plane.vy,-sink*.4);
+  plane.vz*=.3;
+  shake=clamp(sink*.028,.02,.2);
+  ui.center.style.display="block";
+  ui.center.childNodes[0].nodeValue=landQuality.key+"!";
+  ui.sub.textContent=`Airport ${a.index+1} · ×${a.mult.toFixed(1)} · touchdown ${sink.toFixed(1)} m/s`+
+    (landQuality.bonus>1?` · +${Math.round((landQuality.bonus-1)*100)}% smooth bonus`:"");
+}
+function rollout(dt){
+  rollTime+=dt;
+  // Sprung landing gear: a damped spring settles the plane onto its wheels.
+  const rest=landed.y+1.4;
+  plane.vy+=(38*(rest-plane.y)-11.5*plane.vy)*dt;
+  plane.y=Math.max(rest-.55,plane.y+plane.vy*dt);
+  // Aerodynamic drag plus wheel braking.
+  plane.vx=Math.max(0,plane.vx-(5.5+plane.vx*.22)*dt);
+  plane.x+=plane.vx*dt;
+  plane.z=lerp(plane.z,0,1-Math.pow(.06,dt));
+  plane.roll=lerp(plane.roll,0,1-Math.pow(.02,dt));
+  plane.yaw=lerp(plane.yaw,0,1-Math.pow(.05,dt));
+  plane.pitch=lerp(plane.pitch,rad(1.5),1-Math.pow(.05,dt));
+  if(rollTime>2.6||plane.vx<4)finishLanding();
+}
+function bank(total,title,metaHtml){
+  state=STATE.END;
+  const earned=Math.max(1,Math.floor(total/20));
+  save.coins+=earned;
+  if(total>save.best)save.best=Math.floor(total);
+  persist();refreshMenu();
+  ui.resultTitle.textContent=title;
+  ui.final.textContent=fmt(total);
+  ui.meta.innerHTML=`${metaHtml}<br><span class="coin">●</span> +${fmt(earned)} coins earned`;
+  ui.results.style.display="grid";ui.joystickWrap.style.display="none";ui.center.style.display="none";
+  ui.landBtn.classList.remove("show");
+}
+function crash(reason){if(state===STATE.END)return;shake=.45;const sb=scoreBonus();
+  bank(plane.x*sb,reason,`${fmt(plane.x)} m${sb>1?` × ${sb.toFixed(2)}`:" · ×1.0"}<br>Land at an airport to bank a multiplier`)}
+function finishLanding(){
+  const sb=scoreBonus(),lq=landQuality.bonus,ab=approachBonus(landed),n=landed.gates.length;
+  const total=plane.x*landed.mult*sb*lq*ab;
+  const perfect=landed.hits===n;
+  bank(total,perfect&&landQuality.key==="GREASER"?"PERFECT APPROACH!":landQuality.key==="GREASER"?"GREASER!":(landed.mult>=2?"MAX MULTIPLIER!":"LANDED!"),
+    `${fmt(plane.x)} m × ${landed.mult.toFixed(1)}${sb>1?` × ${sb.toFixed(2)}`:""}${lq>1?` × ${lq.toFixed(2)} smooth`:""}${ab>1?` × ${ab.toFixed(2)} corridor`:""}`+
+    `<br>Airport ${landed.index+1} · ${landed.hits}/${n} gates · touchdown ${touchdown.toFixed(1)} m/s`)}
+function launch(){state=STATE.FLY;snap=0;
+  shapeDeparture(charge);
+  fuel=oilCapacity();
+  // Already established in the cruise: on speed, level, trimmed.
+  plane.vx=AERO.cruiseSpd;plane.vy=0;plane.vz=0;
+  plane.y=depGates.length?depGates[0].y:plane.y;
+  plane.pitch=0;throttle=AERO.cruiseBias;
+  ui.center.style.display="none";ui.sub.textContent="";ui.meterLabel.textContent="AIR SPEED";ui.steerLabel.textContent="STEER";ui.landBtn.classList.add("show");ui.spdBox.classList.add("show");ui.oilBox.classList.add("show");ui.altBox.classList.add("show")}
+function loadSling(){
+  // The run opens in level cruise at the height of the departure ladder, so
+  // there is no climb to fly — just the gates to track.
+  plane.x=SLING.rest;
+  plane.y=depGates.length?depGates[0].y:terrain(SLING.x,0)+START_ALT;
+  plane.pitch=0;
+}
+function resetGates(){buildCorridors();depHits=0}
+function reset(){state=STATE.READY;pointer=false;charge=START_CHARGE;chargeDir=1;rollTime=0;landed=null;snap=0;flap=0;stalling=false;touchdown=0;landQuality={key:"LANDED",bonus:1};resetGates();setFlapStage(0);apGate=-1;throttle=0;fuel=oilCapacity();dry=false;cruiseReached=false;climbTime=0;gear=1;stallDepth=0;stallWarn=false;wasStalled=false;ui.meterBox.style.display="";ui.spdBox.classList.remove("show");ui.oilBox.classList.remove("show");ui.altBox.classList.remove("show");ui.distBox.classList.remove("show");ui.landBtn.classList.remove("show");ui.airportSink.textContent="";ui.adiWrap.classList.remove("show");ui.toast.className="";toastTimer=0;plane.z=0;plane.vx=plane.vy=plane.vz=0;plane.roll=0;plane.yaw=0;loadSling();joy.x=0;joy.y=0;joy.active=false;const w0=airports[0].windMax||4;wind.x=rand(-w0*.7,w0*.7);wind.z=0;wind.targetX=wind.x;wind.targetZ=0;cam.x=plane.x-18;cam.y=plane.y+5.8;cam.z=0;ui.menu.style.display="none";ui.results.style.display="none";ui.joystickWrap.style.display="none";ui.joystickKnob.style.transform="translate(0px,0px)";ui.center.style.display="none";ui.meterLabel.textContent="AIR SPEED";launch()}
+
+/* ---------- Main menu & upgrade shop ---------- */
+function openMenu(){
+  state=STATE.MENU;pointer=false;charge=0;chargeDir=1;landed=null;snap=0;flap=0;stalling=false;resetGates();setFlapStage(0);apGate=-1;throttle=0;fuel=oilCapacity();dry=false;cruiseReached=false;climbTime=0;gear=1;stallDepth=0;stallWarn=false;wasStalled=false;
+  ui.landBtn.classList.remove("show");ui.airportSink.textContent="";ui.adiWrap.classList.remove("show");ui.toast.className="";
+  plane.z=0;plane.vx=plane.vy=plane.vz=0;plane.roll=0;plane.yaw=0;loadSling();
+  cam.x=plane.x-18;cam.y=plane.y+5.8;cam.z=0;
+  ui.results.style.display="none";ui.joystickWrap.style.display="none";ui.center.style.display="none";
+  ui.meterLabel.textContent="LAUNCH POWER";
+  ui.menuHome.style.display="block";ui.menuUpgrades.style.display="none";
+  ui.menu.style.display="grid";refreshMenu();
+}
+function refreshMenu(){
+  ui.bestScore.textContent=fmt(save.best);
+  ui.coinCount.textContent=fmt(save.coins);
+  ui.coinCount2.textContent=fmt(save.coins);
+  for(const u of UPGRADES){
+    const card=ui.upgradeList.querySelector(`[data-key="${u.key}"]`);
+    if(!card)continue;
+    const l=lvl(u.key),maxed=l>=u.max,cost=costOf(u,l);
+    card.querySelector(".updesc").textContent=l?u.desc(l):"Not upgraded yet";
+    card.querySelectorAll(".pip").forEach((p,i)=>p.classList.toggle("on",i<l));
+    const btn=card.querySelector(".upbuy");
+    btn.classList.toggle("maxed",maxed);
+    btn.disabled=maxed||save.coins<cost;
+    btn.innerHTML=maxed?"MAX":`<span class="coin">●</span> ${fmt(cost)}`;
+  }
+}
+function buildUpgrades(){
+  ui.upgradeList.innerHTML=UPGRADES.map(u=>`
+    <div class="upcard" data-key="${u.key}">
+      <div class="upicon">${u.icon}</div>
+      <div class="upbody">
+        <div class="upname">${u.name}</div>
+        <div class="updesc"></div>
+        <div class="pips">${'<i class="pip"></i>'.repeat(u.max)}</div>
+      </div>
+      <button class="upbuy" type="button"></button>
+    </div>`).join("");
+  ui.upgradeList.querySelectorAll(".upcard").forEach(card=>{
+    const u=UPGRADES.find(x=>x.key===card.dataset.key);
+    card.querySelector(".upbuy").addEventListener("click",()=>{
+      const l=lvl(u.key);
+      if(l>=u.max)return;
+      const cost=costOf(u,l);
+      if(save.coins<cost)return;
+      save.coins-=cost;save.up[u.key]=l+1;persist();refreshMenu();
+    });
+  });
+}
+buildUpgrades();
+ui.playBtn.addEventListener("click",reset);
+ui.upgradesBtn.addEventListener("click",()=>{ui.menuHome.style.display="none";ui.menuUpgrades.style.display="block";refreshMenu()});
+ui.backBtn.addEventListener("click",()=>{ui.menuUpgrades.style.display="none";ui.menuHome.style.display="block"});
+ui.toMenu.addEventListener("click",openMenu);
+
+// The canvas rect is the reliable measure of the play area — innerWidth can
+// read 0 in embedded/hidden contexts, and the cached W/H can lag a resize.
+function viewSize(){
+  const r=canvas.getBoundingClientRect();
+  return [r.width||W||innerWidth||800, r.height||H||innerHeight||600];
+}
+function placeJoystick(x,y){
+  const [vw,vh]=viewSize();
+  joy.ox=clamp(x,74,Math.max(74,vw-74));
+  joy.oy=clamp(y,74,Math.max(74,vh-74));
+  ui.joystickWrap.style.left=joy.ox+"px";
+  ui.joystickWrap.style.top=joy.oy+"px";
+}
+// Where the stick waits before you touch it — a hint, not a fixed pad.
+// Centred horizontally, sitting about 20% up from the bottom.
+function restJoystick(){
+  const [vw,vh]=viewSize();
+  placeJoystick(vw*.5,vh*.8);
+  ui.joystickWrap.classList.add("idle");
+  ui.joystickKnob.style.transform="translate(0px,0px)";
+}
+function setJoystickFromEvent(e){
+  let dx=e.clientX-joy.ox, dy=e.clientY-joy.oy;
+  const d=Math.hypot(dx,dy);
+  if(d>joy.max){dx=dx/d*joy.max;dy=dy/d*joy.max}
+  joy.x=clamp(dx/joy.max,-1,1);
+  joy.y=clamp(dy/joy.max,-1,1);
+  ui.joystickKnob.style.transform=`translate(${dx}px,${dy}px)`;
+}
+function grabJoystick(e){
+  joy.active=true;joy.id=e.pointerId;
+  placeJoystick(e.clientX,e.clientY);
+  ui.joystickWrap.classList.remove("idle");
+  // Capturing keeps the drag alive when the thumb wanders over the HUD.
+  try{canvas.setPointerCapture(e.pointerId)}catch(err){}
+  setJoystickFromEvent(e);
+}
+function releaseJoy(e){
+  if(!joy.active)return;
+  if(e&&joy.id!==null&&e.pointerId!==joy.id)return;
+  joy.active=false;joy.id=null;joy.x=0;joy.y=0;
+  restJoystick();
+}
+
+canvas.addEventListener("pointerdown",e=>{
+  e.preventDefault();
+  if(state===STATE.END)return;
+  if(state===STATE.FLY&&!joy.active)grabJoystick(e);
+});
+canvas.addEventListener("pointermove",e=>{
+  if(!joy.active||e.pointerId!==joy.id)return;
+  e.preventDefault();setJoystickFromEvent(e);
+});
+addEventListener("pointerup",e=>{releaseJoy(e)});
+addEventListener("pointercancel",e=>{pointer=false;releaseJoy(e)});
+// `auto` marks an engagement handed over by the corridor rather than the pilot,
+// so straying out of that corridor can hand it back.
+function setFlapStage(stage,auto){
+  flapStage=clamp(stage|0,0,FLAP.detent.length-1);
+  landingMode=flapStage>0;
+  landingAuto=landingMode&&(auto!==undefined?!!auto:landingAuto);
+  if(!landingMode)landingAuto=false;
+  ui.landBtn.classList.toggle("on",landingMode);
+  ui.landState.textContent=landingMode?`FLAPS ${flapStage}/4`:"OFF";
+}
+function setLandingMode(on,auto){setFlapStage(on?Math.max(1,flapStage):0,auto)}
+ui.landBtn.addEventListener("pointerdown",e=>{e.preventDefault();e.stopPropagation()});
+ui.landBtn.addEventListener("click",e=>{e.stopPropagation();if(state===STATE.FLY)setLandingMode(!landingMode)});
+addEventListener("keydown",e=>{
+  if(e.repeat)return;
+  const k=e.key.toLowerCase();
+  if((k==="l"||k==="f")&&state===STATE.FLY){e.preventDefault();setLandingMode(!landingMode)}
+});
+ui.restart.addEventListener("click",reset);
+
+/* ---------- Attitude / approach indicator ---------- */
+const adi=$("adi"), actx=adi.getContext("2d");
+function drawADI(a){
+  const S=adi.width, R=S/2, degPx=R/40;
+  actx.clearRect(0,0,S,S);
+  actx.save();actx.translate(R,R);
+
+  // Blue sky over orange ground, rolling and pitching with the aircraft.
+  actx.save();
+  actx.beginPath();actx.arc(0,0,R-5,0,Math.PI*2);actx.clip();
+  actx.save();
+  actx.rotate(-plane.roll);
+  actx.translate(0,deg(plane.pitch)*degPx);
+  actx.fillStyle="#2f7fd0";actx.fillRect(-S,-S*1.6,S*2,S*1.6);
+  actx.fillStyle="#d2801f";actx.fillRect(-S,0,S*2,S*1.6);
+  actx.fillStyle="#fff";actx.fillRect(-S,-1.6,S*2,3.2);
+  actx.strokeStyle="rgba(255,255,255,.92)";
+  actx.font=`800 ${Math.round(R*.12)}px system-ui`;actx.textAlign="center";actx.textBaseline="middle";
+  for(let d=-30;d<=30;d+=10){
+    if(!d)continue;
+    const y=-d*degPx, major=!(Math.abs(d)%20), w=major?R*.34:R*.2;
+    actx.lineWidth=major?2.4:1.8;
+    actx.beginPath();actx.moveTo(-w,y);actx.lineTo(w,y);actx.stroke();
+    if(major){actx.fillStyle="#fff";actx.fillText(String(Math.abs(d)),-w-R*.1,y);actx.fillText(String(Math.abs(d)),w+R*.1,y)}
+  }
+  actx.restore();
+
+  // Flight path marker: where the aeroplane is actually going.
+  const gam=Math.atan2(plane.vy,Math.max(4,plane.vx-wind.x));
+  const drift=Math.atan2(plane.vz,Math.max(4,plane.vx-wind.x));
+  const fx=clamp(deg(drift)*degPx*.9,-R*.62,R*.62), fy=clamp(-deg(gam)*degPx,-R*.62,R*.62);
+  actx.strokeStyle="#8bf5a6";actx.lineWidth=2.6;
+  actx.beginPath();actx.arc(fx,fy,R*.075,0,Math.PI*2);actx.stroke();
+  actx.beginPath();
+  actx.moveTo(fx-R*.075,fy);actx.lineTo(fx-R*.17,fy);
+  actx.moveTo(fx+R*.075,fy);actx.lineTo(fx+R*.17,fy);
+  actx.moveTo(fx,fy-R*.075);actx.lineTo(fx,fy-R*.14);
+  actx.stroke();
+  actx.restore();
+
+  // Bank scale and pointer.
+  actx.strokeStyle="rgba(255,255,255,.85)";actx.lineWidth=2;
+  for(const d of [-45,-30,-20,-10,0,10,20,30,45]){
+    const t=-Math.PI/2+rad(d), r0=R-7, r1=R-(d%30?13:19);
+    actx.beginPath();
+    actx.moveTo(Math.cos(t)*r0,Math.sin(t)*r0);
+    actx.lineTo(Math.cos(t)*r1,Math.sin(t)*r1);
+    actx.stroke();
+  }
+  actx.save();
+  actx.rotate(-plane.roll);
+  actx.fillStyle=Math.abs(deg(plane.roll))>28?"#ff9384":"#ffd54f";
+  actx.beginPath();actx.moveTo(0,-R+8);actx.lineTo(-R*.055,-R+22);actx.lineTo(R*.055,-R+22);actx.closePath();actx.fill();
+  actx.restore();
+
+  // Fixed aircraft reference.
+  actx.lineCap="round";actx.lineJoin="round";
+  const wings=()=>{
+    actx.beginPath();
+    actx.moveTo(-R*.32,0);actx.lineTo(-R*.13,0);actx.lineTo(-R*.08,R*.075);
+    actx.moveTo(R*.32,0);actx.lineTo(R*.13,0);actx.lineTo(R*.08,R*.075);
+    actx.stroke();
+  };
+  actx.strokeStyle="rgba(12,17,26,.75)";actx.lineWidth=7.5;wings();
+  actx.strokeStyle="#ffcf3f";actx.lineWidth=4;wings();
+  actx.fillStyle="rgba(12,17,26,.75)";actx.beginPath();actx.arc(0,0,4.6,0,Math.PI*2);actx.fill();
+  actx.fillStyle="#ffcf3f";actx.beginPath();actx.arc(0,0,2.8,0,Math.PI*2);actx.fill();
+
+  // Localizer along the bottom, glide slope down the right side. Both ride on
+  // dark tracks so they stay readable over sky and ground alike.
+  actx.lineCap="butt";
+  const SP=R*.66, SC=R*.36, TH=R*.115;
+  actx.fillStyle="rgba(10,14,22,.62)";
+  roundRectOn(actx,-SC-TH*.7,SP-TH/2,(SC+TH*.7)*2,TH,TH/2);actx.fill();
+  roundRectOn(actx,SP-TH/2,-SC-TH*.7,TH,(SC+TH*.7)*2,TH/2);actx.fill();
+  actx.strokeStyle="rgba(255,255,255,.8)";actx.lineWidth=1.6;
+  for(const k of [-1,-.5,.5,1]){
+    actx.beginPath();actx.arc(k*SC,SP,R*.024,0,Math.PI*2);actx.stroke();
+    actx.beginPath();actx.arc(SP,k*SC,R*.024,0,Math.PI*2);actx.stroke();
+  }
+  actx.strokeStyle="rgba(255,255,255,.95)";actx.lineWidth=2;
+  actx.beginPath();actx.moveTo(0,SP-TH*.3);actx.lineTo(0,SP+TH*.3);actx.stroke();
+  actx.beginPath();actx.moveTo(SP-TH*.3,0);actx.lineTo(SP+TH*.3,0);actx.stroke();
+  if(a){
+    const locDev=clamp(plane.z/11,-1.2,1.2);
+    const gsDev=clamp((plane.y-glidePathY(a,plane.x))/22,-1.2,1.2);
+    const diamond=(x,y,ok)=>{
+      actx.fillStyle=ok?"#ff5fd6":"#ff8a7a";
+      actx.beginPath();actx.moveTo(x,y-R*.052);actx.lineTo(x+R*.052,y);actx.lineTo(x,y+R*.052);actx.lineTo(x-R*.052,y);actx.closePath();
+      actx.fill();actx.strokeStyle="rgba(10,14,22,.7)";actx.lineWidth=1.4;actx.stroke();
+    };
+    diamond(locDev*SC,SP,Math.abs(locDev)<1);
+    diamond(SP,gsDev*SC,Math.abs(gsDev)<1);
+  }
+
+  // Airspeed, height above the ground and sink rate, stacked clear of the scales.
+  const kmh=Math.round(Math.hypot(plane.vx-wind.x,plane.vy,plane.vz-wind.z)*3.6);
+  const agl=Math.max(0,plane.y-groundAt(plane.x,plane.z)-1.4);
+  const sink=Math.max(0,-plane.vy);
+  const cx=-R*.5, cw=R*.5, ch=R*.185;
+  const chip=(y,label,text,color)=>{
+    actx.fillStyle="rgba(10,14,22,.75)";
+    roundRectOn(actx,cx-cw/2,y-ch/2,cw,ch,ch*.32);actx.fill();
+    actx.textBaseline="middle";
+    actx.font=`900 ${Math.round(R*.068)}px system-ui`;
+    actx.fillStyle="rgba(255,255,255,.6)";actx.textAlign="left";
+    actx.fillText(label,cx-cw/2+R*.045,y+.5);
+    actx.font=`900 ${Math.round(R*.115)}px system-ui`;
+    actx.fillStyle=color;actx.textAlign="right";
+    actx.fillText(text,cx+cw/2-R*.045,y+.5);
+  };
+  const onSpeed=spdTarget>0&&Math.abs(kmh-spdTarget*3.6)<14;
+  chip(-R*.24,spdTarget>0?`⇢${Math.round(spdTarget*3.6)}`:"KMH",`${kmh}`,
+       (stallDepth>.03||stallWarn)?"#ff9384":onSpeed?"#8be59b":"#eaf4ff");
+  chip(-R*.02,"ALT",`${Math.round(agl)}`,agl<12?"#ffd54f":"#eaf4ff");
+  chip(R*.20,"V/S",`↓${sink.toFixed(1)}`,sink<1.2?"#8be59b":sink<LIMIT.sink?"#ffd54f":"#ff9384");
+  actx.restore();
+}
+function roundRectOn(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
+
+function updateCam(dt){
+  // Straight-behind mobile-game chase camera, similar to Plane Evolution /
+  // Sling Plane: centered on the tail, slightly elevated, looking forward.
+  const speed=Math.hypot(plane.vx,plane.vy,plane.vz);
+  const loaded=(state===STATE.MENU||state===STATE.READY||state===STATE.CHARGE);
+  const dynamicBack=loaded?19+charge*5:lerp(16,23,clamp(speed/55,0,1));
+  const targetX=plane.x-dynamicBack;
+  const targetY=plane.y+5.8;
+  const targetZ=plane.z;
+
+  const follow=1-Math.pow(.0012,dt);
+  cam.x=lerp(cam.x,targetX,follow);
+  cam.y=lerp(cam.y,targetY,follow);
+  cam.z=lerp(cam.z,targetZ,follow);
+
+  cam.lookX=plane.x+32;
+  cam.lookY=plane.y+1.6+Math.sin(plane.pitch)*4.2;
+  cam.lookZ=plane.z;
+}
+function updateUI(){
+  ui.dist.textContent=fmt(plane.x);ui.score.textContent=fmt((state===STATE.ROLL&&landed?plane.x*landed.mult:plane.x)*scoreBonus());ui.wind.textContent=Math.round(Math.abs(wind.x*3.6));ui.windArrow.textContent=wind.x>=0?"→":"←";
+  if(state===STATE.READY||state===STATE.CHARGE||state===STATE.MENU){
+    ui.fill.style.width=`${Math.round(charge*100)}%`;ui.meterValue.textContent=`${Math.round(charge*100)}%`;
+    const rb=releaseBonus(charge);
+    ui.meterLabel.textContent=state===STATE.CHARGE&&rb>0?`RELEASE · +${Math.round(rb*100)}% OIL`:"LAUNCH POWER";
+    ui.launchTrack.classList.toggle("zoned",state!==STATE.MENU);
+    ui.meterBox.style.display="";ui.airport.style.opacity="0";
+    for(const b of [ui.spdBox,ui.oilBox,ui.altBox,ui.distBox,ui.progress])b.classList.remove("show");
+  }else{
+    // In flight the launch meter gives way to the compact instrument row.
+    ui.meterBox.style.display="none";
+    const as=Math.hypot(plane.vx-wind.x,plane.vy,plane.vz-wind.z)*3.6;
+    ui.spdValue.textContent=Math.round(as);
+    ui.spdBox.classList.toggle("show",state!==STATE.END);
+    const pc=clamp(plane.x/routeLen*100,0,100);
+    ui.progress.classList.toggle("show",state!==STATE.END);
+    ui.progFill.style.width=pc+"%";
+    ui.progPlane.style.left=pc+"%";
+    ui.progTrack.querySelectorAll(".progTick").forEach(t=>{
+      const a=airports[+t.dataset.i];
+      t.classList.toggle("done",plane.x>a.x+a.len);
+    });
+    // Green when the speed is where it should be, amber when drifting, red
+    // when it is about to bite.
+    const v=Math.hypot(plane.vx-wind.x,plane.vy,plane.vz-wind.z);
+    const vs=stallSpeed(flapStage);
+    // While the aeroplane is still flying itself up to cruise there is nothing
+    // the pilot can do about the speed, so grade on stall margin until then.
+    const tgtActive=spdTarget>0&&(cruiseReached||landingMode);
+    let grade;
+    if(stallDepth>.03||stallWarn)grade="bad";
+    else if(tgtActive)grade=Math.abs(v-spdTarget)<2.2?"good":Math.abs(v-spdTarget)<5?"warn":"bad";
+    else grade=v<vs*1.18?"warn":"good";
+    ui.spdBox.classList.remove("good","warn","bad");ui.spdBox.classList.add(grade);
+    ui.spdLabel.textContent=stallDepth>.03?"STALL!":stallWarn?"STALL WARN":tgtActive?`SPD →${Math.round(spdTarget*3.6)}`:"SPD";
+    const oilPct=oilCapacity()?fuel/oilCapacity()*100:0;
+    ui.oilValue.textContent=Math.round(oilPct);
+    ui.oilBox.classList.toggle("show",state!==STATE.END);
+    ui.oilBox.classList.remove("good","warn","bad");
+    ui.oilBox.classList.add(oilPct<=0?"bad":oilPct<25?"warn":"good");
+    const a=nextAirport(),away=Math.max(0,a.x-plane.x);ui.airportName.textContent=`Airport ${a.index+1}`;ui.airportAway.textContent=away<8?"RUNWAY NOW":`${Math.round(away)} m away`;ui.airportMult.textContent=`×${a.mult.toFixed(1)}`;ui.airportName.textContent=`Airport ${a.index+1} · ${a.windName} WIND`;ui.airport.style.opacity=(away<350&&state!==STATE.END)?"1":"0";
+    // Height above whatever is directly below — terrain or runway.
+    const agl=plane.y-groundAt(plane.x,plane.z);
+    const aglShown=Math.max(0,agl-1.4);
+    ui.altValue.textContent=Math.round(aglShown);
+    ui.altBox.classList.toggle("show",state!==STATE.END);
+    ui.altBox.classList.toggle("low",aglShown<12);
+    // Distance to the threshold, but only once a gate has actually been flown:
+    // fly the corridor and the runway tells you how far it is.
+    const onRwy=runwayAt(plane.x,plane.z);
+    const showDist=state!==STATE.END&&a.hits>0;
+    ui.distValue.textContent=onRwy?"0":Math.round(away);
+    ui.distBox.classList.toggle("show",showDist);
+    ui.distBox.classList.remove("good","warn");
+    ui.distBox.classList.add(onRwy||away<GATE.offsets[GATE.offsets.length-1]?"good":"warn");
+    // Sink rate on final: the number to fly for a soft touchdown.
+    if(state===STATE.FLY&&away<170&&agl<55){
+      const sink=Math.max(0,-plane.vy);
+      ui.airportSink.textContent=`SINK ${sink.toFixed(1)} m/s`;
+      ui.airportSink.className=sink<1.2?"ok":sink<LIMIT.sink?"warn":"bad";
+    }else ui.airportSink.textContent=""}
+  // Approach panel: the ILS-style indicator rides along the corridor.
+  const ap=(state===STATE.FLY||state===STATE.ROLL)?approachAirport():null;
+  const showAdi=!!ap||(landingMode&&state===STATE.FLY);
+  ui.adiWrap.classList.toggle("show",showAdi);
+  if(showAdi)drawADI(ap);
+  if(ap){
+    const done=ap.gates.filter(g=>g.state).length;
+    ui.adiCap.textContent=ap.armed?`ILS ${ap.hits}/${ap.gates.length} · FLAPS ${flapStage}`:`APPROACH ${ap.index+1}`;
+    ui.adiCap.classList.toggle("locked",ap.hits===done&&done>0);
+  }else{ui.adiCap.textContent="LANDING MODE";ui.adiCap.classList.remove("locked")}
+}
+function render(){
+  ctx.save();if(shake>0)ctx.translate(rand(-shake*8,shake*8),rand(-shake*8,shake*8));drawSky();drawTerrain();
+  const items=[];
+  for(const a of airports)if(a.x>plane.x-60&&a.x<plane.x+520)items.push({x:a.x,fn:()=>drawRunway(a)});
+  for(const t of trees)if(t.x>plane.x-70&&t.x<plane.x+520)items.push({x:t.x,fn:()=>drawTree(t)});
+  for(const r of rocks)if(r.x>plane.x-70&&r.x<plane.x+520)items.push({x:r.x,fn:()=>drawRock(r)});
+  for(const g of gates)if(g.x>plane.x-30&&g.x<plane.x+520)items.push({x:g.x,fn:()=>drawGate(g)});
+  for(const g of depGates)if(g.x>plane.x-30&&g.x<plane.x+520)items.push({x:g.x,fn:()=>drawGate(g)});
+  items.sort((a,b)=>b.x-a.x);for(const i of items)i.fn();
+  drawHangar();drawPlaneShadow();drawPlane();ctx.restore()
+}
+function tick(now){const dt=Math.min((now-last)/1000,1/30);last=now;updateWind(dt);
+  if(state===STATE.FLY)flight(dt);else if(state===STATE.ROLL)rollout(dt);
+  snap=Math.max(0,snap-dt);
+  if(toastTimer>0&&(toastTimer-=dt)<=0)ui.toast.className="";
+  updateCam(dt);updateUI();shake=Math.max(0,shake-dt*1.8);render();requestAnimationFrame(tick)}
+
+buildProgress();
+openMenu();requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
